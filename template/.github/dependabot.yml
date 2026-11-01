@@ -6,6 +6,10 @@ updates:
     groups:
       cdk:
         patterns: ['aws-cdk', 'aws-cdk-lib', 'constructs', 'cdk-nag']
+    ignore:
+      # ts-jest 29 accepts typescript ">=4.3 <7"; TypeScript 7 breaks npm ci. Drop this when ts-jest does.
+      - dependency-name: typescript
+        versions: ['>=7']
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }

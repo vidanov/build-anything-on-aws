@@ -100,6 +100,19 @@ describe('S-008 and S-009 removal policy follows the stage', () => {
     for (const r of Object.values(prod.findResources('AWS::S3::Bucket'))) expect(r.DeletionPolicy).toBe('Retain');
   });
 
+  test('every function, CDK helpers included, logs to a log group that goes with the PR stack', () => {
+    const pr = synth('pr-7');
+    const groups = pr.findResources('AWS::Logs::LogGroup');
+    const fns = Object.values(pr.findResources('AWS::Lambda::Function'));
+    expect(fns.length).toBe(3);
+    for (const fn of fns) {
+      const group = groups[fn.Properties.LoggingConfig?.LogGroup?.Ref];
+      expect(group).toBeDefined();
+      expect(group.DeletionPolicy).toBe('Delete');
+      expect(group.Properties.RetentionInDays).toBeGreaterThan(0);
+    }
+  });
+
   test('stage names outside pr-<n>, dev, prod are rejected', () => {
     expect(() => synth('test')).toThrow(/baa:stage/);
   });

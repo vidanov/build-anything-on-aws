@@ -1,4 +1,4 @@
-import { Duration, Validations, aws_cloudfront as cloudfront, aws_cloudfront_origins as origins, aws_s3 as s3, aws_s3_deployment as s3deploy } from 'aws-cdk-lib';
+import { CfnResource, Duration, Stack, Validations, aws_cloudfront as cloudfront, aws_cloudfront_origins as origins, aws_logs as logs, aws_s3 as s3, aws_s3_deployment as s3deploy } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as path from 'path';
 import { Settings, removalFor } from './settings';
@@ -75,6 +75,16 @@ export class Frontend extends Construct {
       reason: 'No AWS WAF in M1: a web ACL costs money every month and is unavailable on CloudFront in profile A. API throttling limits abuse. Revisit in the WA checkpoint.',
     });
 
+    // CDK's helper functions (BucketDeployment, S3 auto-delete) would log to /aws/lambda/<name>,
+    // which Lambda creates outside the stack: it outlives a PR stack and never expires. Their own
+    // log groups go with the stack. The custom resource refers to the function and the function
+    // to its log group, so CloudFormation deletes them in that order and the last (Delete)
+    // invocation still has somewhere to write.
+    const helperLogs = (id: string) => new logs.LogGroup(this, id, {
+      retention: logs.RetentionDays.ONE_MONTH,
+      removalPolicy: removalFor(settings),
+    });
+
     new s3deploy.BucketDeployment(this, 'Deploy', {
       sources: [
         s3deploy.Source.asset(path.join(__dirname, '..', 'site')),
@@ -83,6 +93,15 @@ export class Frontend extends Construct {
       destinationBucket: this.bucket,
       distribution: this.distribution,
       distributionPaths: ['/*'],
+      logGroup: helperLogs('DeployLogs'),
     });
+
+    if (throwaway) {
+      // autoDeleteObjects adds one provider per stack; it has no logGroup option.
+      const handler = Stack.of(this).node.tryFindChild('Custom::S3AutoDeleteObjectsCustomResourceProvider')
+        ?.node.tryFindChild('Handler') as CfnResource | undefined;
+      if (!handler) throw new Error('S3 auto-delete provider not found; aws-cdk-lib changed, update lib/frontend.ts');
+      handler.addPropertyOverride('LoggingConfig.LogGroup', helperLogs('AutoDeleteLogs').logGroupName);
+    }
   }
 }

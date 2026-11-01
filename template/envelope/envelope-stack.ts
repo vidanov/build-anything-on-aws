@@ -112,7 +112,8 @@ export class EnvelopeStack extends Stack {
     const pr = ghaRole('Pr', 'GitHub Actions on pull requests: cdk diff and App-pr-<n> stacks', subjects('pull_request'), ['lookup', 'deploy', 'file-publishing', 'image-publishing']);
     // main branch: App-dev.
     const dev = ghaRole('Dev', 'GitHub Actions on main: App-dev', subjects('ref:refs/heads/main'), ['lookup', 'deploy', 'file-publishing', 'image-publishing']);
-    // Only the GitHub environment "prod", which has required reviewers.
+    // Only the GitHub environment "prod". deploy.yml enters it only on a manual run; required
+    // reviewers on it need a paid plan for private repos (docs/FACT-CHECKS.md, F22).
     const prod = ghaRole('Prod', 'GitHub Actions in environment prod: App-prod', subjects('environment:prod'), ['lookup', 'deploy', 'file-publishing', 'image-publishing']);
 
     // 4. The local coding agent reads; it never writes. Data plane reads are denied too.
