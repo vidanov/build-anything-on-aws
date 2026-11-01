@@ -91,7 +91,7 @@ else
   log "  $EXEC policies: $(aws iam list-attached-role-policies --role-name "$EXEC" --query 'AttachedPolicies[].PolicyName' --output text)"
   for kind in with without; do
     s=baa-fact-boundary-$kind
-    aws cloudformation create-stack --stack-name $s --role-arn "arn:aws:iam::$ACCOUNT:role/$EXEC" --template-body "$(role_template $kind)" >/dev/null
+    aws cloudformation create-stack --stack-name $s --role-arn "arn:aws:iam::$ACCOUNT:role/$EXEC" --capabilities CAPABILITY_IAM --template-body "$(role_template $kind)" >/dev/null
     if aws cloudformation wait stack-create-complete --stack-name $s 2>/dev/null; then v=CREATED
     else v="FAILED: $(aws cloudformation describe-stack-events --stack-name $s --query "StackEvents[?ResourceStatus=='CREATE_FAILED'].ResourceStatusReason | [0]" --output text)"; fi
     log "  $kind boundary: $v"

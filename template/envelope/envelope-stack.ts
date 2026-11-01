@@ -1,4 +1,4 @@
-import { CfnOutput, Duration, RemovalPolicy, Stack, StackProps, aws_budgets as budgets, aws_cloudtrail as cloudtrail, aws_iam as iam, aws_s3 as s3 } from 'aws-cdk-lib';
+import { CfnOutput, Duration, LegacyStackSynthesizer, RemovalPolicy, Stack, StackProps, aws_budgets as budgets, aws_cloudtrail as cloudtrail, aws_iam as iam, aws_s3 as s3 } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { boundaryStatements } from './boundary';
 import { cfnExecStatements } from './cfn-exec';
@@ -30,6 +30,17 @@ export const QUALIFIER = 'baa';
 export const TOOLKIT_STACK_NAME = 'BaaToolkit';
 
 /**
+ * The envelope deploys before `cdk bootstrap`, with the human's CLI credentials. The CLI
+ * passes the template inline (CloudFormation takes up to 51,200 bytes in the request), so no
+ * assets bucket and no bootstrap role are needed. The alternatives do not work here:
+ * CliCredentialsStackSynthesizer uploads the template to cdk-<qualifier>-assets-*, and
+ * BootstraplessSynthesizer still assumes cdk-hnb659fds-deploy-role; neither exists in a fresh
+ * account. test/envelope.test.ts checks this and the size limit.
+ */
+export const envelopeSynthesizer = (): LegacyStackSynthesizer => new LegacyStackSynthesizer();
+export const INLINE_TEMPLATE_LIMIT = 51_200;
+
+/**
  * The account envelope. A human deploys it once with admin rights; afterwards nothing in
  * the project needs admin again. It holds:
  *   - baa-boundary: the ceiling for every role CDK creates (stands in for SCPs in profiles A and B)
@@ -37,7 +48,7 @@ export const TOOLKIT_STACK_NAME = 'BaaToolkit';
  *   - GitHub OIDC provider and three roles: pr, dev, prod (no long-lived keys anywhere)
  *   - baa-agent-readonly: what the local coding agent may use
  *   - a monthly budget with email alerts, and one management-events CloudTrail trail
- * It uses CLI credentials and has no assets, so it deploys before `cdk bootstrap`.
+ * It has no assets and deploys before `cdk bootstrap` (see envelopeSynthesizer).
  */
 export class EnvelopeStack extends Stack {
   constructor(scope: Construct, id: string, props: EnvelopeProps) {

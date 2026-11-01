@@ -2,8 +2,8 @@
 // The envelope app. A human runs it once, with admin rights, before cdk bootstrap:
 //   npm run envelope:deploy -- -c profile=B -c githubOwner=me -c githubRepo=my-app -c alertEmail=me@example.com
 // The local coding agent cannot run this: deny-aws blocks cdk deploy, and its role is read-only.
-import { App, CliCredentialsStackSynthesizer } from 'aws-cdk-lib';
-import { EnvelopeProfile, EnvelopeStack } from './envelope-stack';
+import { App } from 'aws-cdk-lib';
+import { EnvelopeProfile, EnvelopeStack, envelopeSynthesizer } from './envelope-stack';
 
 const app = new App();
 const ctx = (key: string, fallback?: string): string => {
@@ -18,8 +18,7 @@ if (!['A', 'B', 'C'].includes(profile)) throw new Error('profile must be A, B or
 
 new EnvelopeStack(app, 'BaaEnvelope', {
   env: { account: process.env.CDK_DEFAULT_ACCOUNT, region },
-  // No bootstrap needed: the envelope has no assets and deploys with the human's credentials.
-  synthesizer: new CliCredentialsStackSynthesizer(),
+  synthesizer: envelopeSynthesizer(),
   terminationProtection: true,
   profile,
   githubOwner: ctx('githubOwner'),

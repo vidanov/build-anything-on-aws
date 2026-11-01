@@ -1,17 +1,19 @@
 // Drills for the envelope contract. They read the synthesized envelope template, so they need
 // no AWS account. What they cannot prove (that IAM evaluates the conditions as intended) is
 // listed in docs/FACT-CHECKS.md and checked in a sandbox account.
-import { readFileSync } from 'fs';
+import { readFileSync, statSync } from 'fs';
 import { join } from 'path';
-import { App, CliCredentialsStackSynthesizer } from 'aws-cdk-lib';
+import { App } from 'aws-cdk-lib';
 import { Template } from 'aws-cdk-lib/assertions';
-import { EnvelopeStack, QUALIFIER, TOOLKIT_STACK_NAME } from '../envelope/envelope-stack';
+import { EnvelopeStack, INLINE_TEMPLATE_LIMIT, QUALIFIER, TOOLKIT_STACK_NAME, envelopeSynthesizer } from '../envelope/envelope-stack';
 
-function synth(extra: Partial<{ githubOwnerId: string; githubRepoId: string; profile: 'A' | 'B' | 'C'; trail: boolean }> = {}): Template {
+type Extra = Partial<{ githubOwnerId: string; githubRepoId: string; profile: 'A' | 'B' | 'C'; trail: boolean }>;
+
+function envelope(extra: Extra = {}): EnvelopeStack {
   const app = new App();
   const stack = new EnvelopeStack(app, 'BaaEnvelope', {
     env: { account: '111111111111', region: 'eu-central-1' },
-    synthesizer: new CliCredentialsStackSynthesizer(),
+    synthesizer: envelopeSynthesizer(),
     profile: extra.profile ?? 'B',
     githubOwner: 'learner',
     githubRepo: 'my-app',
@@ -22,7 +24,11 @@ function synth(extra: Partial<{ githubOwnerId: string; githubRepoId: string; pro
     allowedRegions: ['eu-central-1', 'us-east-1'],
     trail: extra.trail,
   });
-  return Template.fromStack(stack);
+  return stack;
+}
+
+function synth(extra: Extra = {}): Template {
+  return Template.fromStack(envelope(extra));
 }
 
 const statements = (t: Template, name: string) => {
@@ -133,5 +139,18 @@ describe('own bootstrap, separate from the default CDKToolkit', () => {
     const policies = JSON.stringify(t.findResources('AWS::IAM::Policy'));
     expect(policies).toContain(`role/cdk-${QUALIFIER}-deploy-role-111111111111-eu-central-1`);
     expect(policies).not.toContain('hnb659fds');
+  });
+});
+
+describe('the envelope deploys before cdk bootstrap', () => {
+  test('no assets bucket, no bootstrap roles, template small enough to pass inline', () => {
+    // Largest shape: profile B with the trail and both GitHub subject formats.
+    const stack = envelope({ profile: 'B', githubOwnerId: '123', githubRepoId: '456' });
+    const artifact = (stack.node.root as App).synth().getStackArtifact(stack.artifactId);
+    expect(artifact.stackTemplateAssetObjectUrl).toBeUndefined();
+    expect(artifact.assumeRoleArn).toBeUndefined();
+    expect(artifact.requiresBootstrapStackVersion).toBeUndefined();
+    expect(artifact.dependencies.map((d) => d.id)).not.toContainEqual(expect.stringMatching(/\.assets$/));
+    expect(statSync(artifact.templateFullPath).size).toBeLessThan(INLINE_TEMPLATE_LIMIT);
   });
 });
