@@ -113,6 +113,23 @@ describe('S-008 and S-009 removal policy follows the stage', () => {
     }
   });
 
+  test('no function role can create a log group, so late log lines cannot recreate a deleted one', () => {
+    const pr = synth('pr-7');
+    const policies = Object.values(pr.findResources('AWS::IAM::Policy'));
+    for (const fn of Object.values(pr.findResources('AWS::Lambda::Function'))) {
+      const roleId = fn.Properties.Role['Fn::GetAtt'][0];
+      const role = pr.findResources('AWS::IAM::Role')[roleId];
+      const statements = [
+        ...(role.Properties.Policies ?? []).flatMap((p: any) => p.PolicyDocument.Statement),
+        ...policies.filter((p) => JSON.stringify(p.Properties.Roles).includes(roleId)).flatMap((p) => p.Properties.PolicyDocument.Statement),
+      ];
+      // A Deny is not enough: CloudFormation removes it before the role, while late log lines arrive.
+      const allowsCreate = statements.some((s: any) => s.Effect === 'Allow' && [].concat(s.Action).some((a: string) => a === 'logs:CreateLogGroup' || a === 'logs:*'));
+      expect(allowsCreate).toBe(false);
+      expect(role.Properties.ManagedPolicyArns ?? []).toEqual([]);
+    }
+  });
+
   test('stage names outside pr-<n>, dev, prod are rejected', () => {
     expect(() => synth('test')).toThrow(/baa:stage/);
   });

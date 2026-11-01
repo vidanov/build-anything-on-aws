@@ -36,20 +36,19 @@ export class AppStack extends Stack {
 
 /**
  * BucketDeployment adds a helper Lambda that CDK itself owns (it copies site files to S3).
- * Its runtime, role and policy come from aws-cdk-lib, so its findings are acknowledged
- * here, one by one, because cdk-nag v3 has no bulk acknowledgement. Our own function
- * gets no such pass.
+ * Its runtime and the S3 grants on its role come from aws-cdk-lib, so their findings are
+ * acknowledged here, one by one, because cdk-nag v3 has no bulk acknowledgement. The role
+ * itself is ours (lib/frontend.ts: own log group only). Our own function gets no such pass.
  */
 function acknowledgeCdkHelpers(stack: Stack, frontend: Frontend): void {
-  const helpers = stack.node.children.filter((c) => c.node.id.startsWith('Custom::CDKBucketDeployment'));
+  const helpers = [...stack.node.children.filter((c) => c.node.id.startsWith('Custom::CDKBucketDeployment')), frontend.deployRole];
   const site = stack.getLogicalId(frontend.bucket.node.defaultChild as CfnElement);
   // With AWS credentials (a laptop, the deploy job) the account is a literal in the template;
   // without them (the gates job) it is a token. The finding ID differs, so match both.
   const account = Token.isUnresolved(stack.account) ? '<AWS::AccountId>' : stack.account;
   const qualifier = stack.node.tryGetContext('@aws-cdk/core:bootstrapQualifier') ?? DefaultStackSynthesizer.DEFAULT_QUALIFIER;
-  const reason = 'CDK-managed BucketDeployment helper: runtime and IAM policy are set by aws-cdk-lib and scoped to the site bucket and the CDK assets bucket.';
+  const reason = 'CDK-managed BucketDeployment helper: runtime and S3 grants are set by aws-cdk-lib and scoped to the site bucket and the CDK assets bucket.';
   const ids = [
-    'AwsSolutions-IAM4[Policy::arn:<AWS::Partition>:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole]',
     'AwsSolutions-IAM5[Action::s3:GetBucket*]',
     'AwsSolutions-IAM5[Action::s3:GetObject*]',
     'AwsSolutions-IAM5[Action::s3:List*]',

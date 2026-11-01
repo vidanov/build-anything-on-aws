@@ -1,4 +1,4 @@
-import { CfnResource, Duration, Stack, Validations, aws_cloudfront as cloudfront, aws_cloudfront_origins as origins, aws_logs as logs, aws_s3 as s3, aws_s3_deployment as s3deploy } from 'aws-cdk-lib';
+import { CfnResource, Duration, Stack, Validations, aws_cloudfront as cloudfront, aws_cloudfront_origins as origins, aws_iam as iam, aws_logs as logs, aws_s3 as s3, aws_s3_deployment as s3deploy } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import * as path from 'path';
 import { Settings, removalFor } from './settings';
@@ -17,6 +17,8 @@ export interface FrontendProps {
 export class Frontend extends Construct {
   readonly distribution: cloudfront.Distribution;
   readonly bucket: s3.Bucket;
+  /** Role of the CDK BucketDeployment helper (its cdk-nag findings are acknowledged in app-stack.ts). */
+  readonly deployRole: iam.Role;
 
   constructor(scope: Construct, id: string, props: FrontendProps) {
     super(scope, id);
@@ -77,13 +79,22 @@ export class Frontend extends Construct {
 
     // CDK's helper functions (BucketDeployment, S3 auto-delete) would log to /aws/lambda/<name>,
     // which Lambda creates outside the stack: it outlives a PR stack and never expires. Their own
-    // log groups go with the stack. The custom resource refers to the function and the function
-    // to its log group, so CloudFormation deletes them in that order and the last (Delete)
-    // invocation still has somewhere to write.
+    // log groups go with the stack. That alone is not enough: the helpers run once more while the
+    // stack is deleted, their last log lines arrive seconds after CloudFormation deleted the log
+    // group, and Lambda creates it again with the role's logs:CreateLogGroup (seen twice on
+    // baa-test-app#3; a Deny on the role is removed before that moment). So, like the API
+    // function, each helper role may only write to its own log group: no AWSLambdaBasicExecutionRole.
     const helperLogs = (id: string) => new logs.LogGroup(this, id, {
       retention: logs.RetentionDays.ONE_MONTH,
       removalPolicy: removalFor(settings),
     });
+
+    const deployLogs = helperLogs('DeployLogs');
+    this.deployRole = new iam.Role(this, 'DeployRole', {
+      assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+      description: 'CDK BucketDeployment helper: copies site/ into the bucket, writes only its own log group',
+    });
+    deployLogs.grantWrite(this.deployRole);
 
     new s3deploy.BucketDeployment(this, 'Deploy', {
       sources: [
@@ -93,15 +104,27 @@ export class Frontend extends Construct {
       destinationBucket: this.bucket,
       distribution: this.distribution,
       distributionPaths: ['/*'],
-      logGroup: helperLogs('DeployLogs'),
+      role: this.deployRole,
+      logGroup: deployLogs,
     });
 
     if (throwaway) {
-      // autoDeleteObjects adds one provider per stack; it has no logGroup option.
-      const handler = Stack.of(this).node.tryFindChild('Custom::S3AutoDeleteObjectsCustomResourceProvider')
-        ?.node.tryFindChild('Handler') as CfnResource | undefined;
-      if (!handler) throw new Error('S3 auto-delete provider not found; aws-cdk-lib changed, update lib/frontend.ts');
-      handler.addPropertyOverride('LoggingConfig.LogGroup', helperLogs('AutoDeleteLogs').logGroupName);
+      // autoDeleteObjects adds one provider per stack with neither a logGroup nor a role option.
+      // Its bucket access comes from the bucket policies, so the role needs nothing but logs.
+      const provider = Stack.of(this).node.tryFindChild('Custom::S3AutoDeleteObjectsCustomResourceProvider');
+      const handler = provider?.node.tryFindChild('Handler') as CfnResource | undefined;
+      const role = provider?.node.tryFindChild('Role') as CfnResource | undefined;
+      if (!handler || !role) throw new Error('S3 auto-delete provider not found; aws-cdk-lib changed, update lib/frontend.ts');
+      const autoDeleteLogs = helperLogs('AutoDeleteLogs');
+      handler.addPropertyOverride('LoggingConfig.LogGroup', autoDeleteLogs.logGroupName);
+      role.addPropertyDeletionOverride('ManagedPolicyArns');
+      role.addPropertyOverride('Policies', [{
+        PolicyName: 'OwnLogGroupOnly',
+        PolicyDocument: {
+          Version: '2012-10-17',
+          Statement: [{ Effect: 'Allow', Action: ['logs:CreateLogStream', 'logs:PutLogEvents'], Resource: autoDeleteLogs.logGroupArn }],
+        },
+      }]);
     }
   }
 }
