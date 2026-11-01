@@ -36,7 +36,8 @@ run handler-tests native true node --test test/handler.test.mjs
 
 # Synth. cdk-nag v3 errors make synth exit 1, but nag-report reads the report either way,
 # so the gate does not depend on the exit code.
-npx cdk synth --quiet -c "baa:stage=$STAGE" "${REGION_ARGS[@]}" >cdk.out/.synth.log 2>&1
+# ${a[@]+"${a[@]}"}: macOS /bin/bash 3.2 treats an empty array as unset under set -u.
+npx cdk synth --quiet -c "baa:stage=$STAGE" ${REGION_ARGS[@]+"${REGION_ARGS[@]}"} >cdk.out/.synth.log 2>&1
 SYNTH=$?
 TEMPLATE=$(ls cdk.out/App-*.template.json 2>/dev/null | head -1)
 if [ -z "$TEMPLATE" ]; then

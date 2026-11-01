@@ -1,5 +1,6 @@
 {
   "app": "npx ts-node --prefer-ts-exts bin/app.ts",
+  "toolkitStackName": "BaaToolkit",
   "watch": {
     "include": ["**"],
     "exclude": ["README.md", "cdk*.json", "**/*.d.ts", "**/*.js", "tsconfig.json", "package*.json", "node_modules", "test", "docs"]
@@ -10,6 +11,7 @@
     "baa:region": "eu-central-1",
     "baa:alertEmail": "",
     "baa:prTtlHours": 48,
+    "@aws-cdk/core:bootstrapQualifier": "baa",
     "@aws-cdk/core:permissionsBoundary": {
       "name": "baa-boundary"
     },

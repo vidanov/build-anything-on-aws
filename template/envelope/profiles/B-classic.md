@@ -13,9 +13,12 @@ Steps (a human does these, not the agent):
 2. Envelope: `npm run envelope:deploy -- -c profile=B -c region=eu-central-1 -c githubOwner=<you> -c githubRepo=<repo> -c alertEmail=<you>`
    Add `-c githubOwnerId=<id> -c githubRepoId=<id>` for repos created or renamed after
    2026-07-15 (immutable OIDC subjects): `gh api repos/<owner>/<repo> --jq '.owner.id, .id'`.
+   Add `-c trail=false` if the account is in an organization whose organization trail already
+   records it (`aws cloudtrail describe-trails`); a second copy of management events is billed.
 3. Confirm the budget emails from AWS Budgets when they arrive.
-4. Bootstrap: run the `BootstrapCommand` output. It replaces AdministratorAccess with
-   `baa-cfn-exec` and puts `baa-boundary` on every role CDK creates.
+4. Bootstrap: run the `BootstrapCommand` output. It creates BAA's own toolkit stack
+   `BaaToolkit` (qualifier `baa`) with `baa-cfn-exec` instead of AdministratorAccess and
+   `baa-boundary` on the execution role. An existing `CDKToolkit` from other projects stays as it is.
 5. Agent profile in `~/.aws/config`:
    ```
    [profile baa-agent]

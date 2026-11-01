@@ -25,8 +25,8 @@ Open the profile file named in `.baa/preflight.json` (`envelope/profiles/A-proje
 Write `scripts/setup-envelope.sh`: one step per block, each step echoes what it does and why, then runs one command, then checks the result. Steps:
 
 1. `aws sts get-caller-identity` (the human is signed in with admin rights)
-2. `npm run envelope:deploy -- -c profile=<P> -c region=<R> -c githubOwner=<o> -c githubRepo=<r> [-c githubOwnerId=<id> -c githubRepoId=<id>] -c alertEmail=<e> -c monthlyBudgetUsd=<n>`
-3. The `BootstrapCommand` from the stack outputs (narrow execution policy, `--custom-permissions-boundary baa-boundary`, termination protection)
+2. `npm run envelope:deploy -- -c profile=<P> -c region=<R> -c githubOwner=<o> -c githubRepo=<r> [-c githubOwnerId=<id> -c githubRepoId=<id>] -c alertEmail=<e> -c monthlyBudgetUsd=<n> [-c trail=false]` (`trail=false` when an organization trail already records the account)
+3. The `BootstrapCommand` from the stack outputs (own `BaaToolkit` stack with qualifier `baa`, narrow execution policy, `--custom-permissions-boundary baa-boundary`, termination protection)
 4. `gh variable set AWS_ACCOUNT_ID`, `AWS_REGION`, `AWS_ROLE_PR`, `AWS_ROLE_DEV`, `ALERT_EMAIL`, and `gh variable set AWS_ROLE_PROD --env prod`
 5. The `[profile baa-agent]` block for `~/.aws/config` with the `AgentRoleArn` output
 6. `AWS_PROFILE=baa-agent aws sts get-caller-identity` (the agent role works and is not the admin)
@@ -38,7 +38,7 @@ Show the script. The human runs it. While they do, show only the current step an
 After the run, check read-only (as `baa-agent`):
 
 - `aws iam get-policy --policy-arn arn:aws:iam::<acct>:policy/baa-boundary`
-- `aws cloudformation describe-stacks --stack-name CDKToolkit` shows the custom execution policy
+- `aws cloudformation describe-stacks --stack-name BaaToolkit` shows the custom execution policy and qualifier `baa`
 - `aws budgets describe-budgets --account-id <acct>` lists `baa-monthly`
 
 Write `docs/ENVELOPE.md`: profile, region, role ARNs, what was confirmed, and what is still unverified for this profile (see `docs/FACT-CHECKS.md`). Set `status: ready`.

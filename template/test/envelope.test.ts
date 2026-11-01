@@ -1,11 +1,13 @@
 // Drills for the envelope contract. They read the synthesized envelope template, so they need
 // no AWS account. What they cannot prove (that IAM evaluates the conditions as intended) is
 // listed in docs/FACT-CHECKS.md and checked in a sandbox account.
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { App, CliCredentialsStackSynthesizer } from 'aws-cdk-lib';
 import { Template } from 'aws-cdk-lib/assertions';
-import { EnvelopeStack } from '../envelope/envelope-stack';
+import { EnvelopeStack, QUALIFIER, TOOLKIT_STACK_NAME } from '../envelope/envelope-stack';
 
-function synth(extra: Partial<{ githubOwnerId: string; githubRepoId: string; profile: 'A' | 'B' | 'C' }> = {}): Template {
+function synth(extra: Partial<{ githubOwnerId: string; githubRepoId: string; profile: 'A' | 'B' | 'C'; trail: boolean }> = {}): Template {
   const app = new App();
   const stack = new EnvelopeStack(app, 'BaaEnvelope', {
     env: { account: '111111111111', region: 'eu-central-1' },
@@ -18,6 +20,7 @@ function synth(extra: Partial<{ githubOwnerId: string; githubRepoId: string; pro
     alertEmail: 'learner@example.com',
     monthlyBudgetUsd: 20,
     allowedRegions: ['eu-central-1', 'us-east-1'],
+    trail: extra.trail,
   });
   return Template.fromStack(stack);
 }
@@ -113,5 +116,22 @@ describe('agent and money', () => {
   test('profile B gets its own trail, profile A does not', () => {
     synth({ profile: 'B' }).resourceCountIs('AWS::CloudTrail::Trail', 1);
     synth({ profile: 'A' }).resourceCountIs('AWS::CloudTrail::Trail', 0);
+  });
+
+  test('trail=false skips the trail where an organization trail already records the account', () => {
+    synth({ profile: 'B', trail: false }).resourceCountIs('AWS::CloudTrail::Trail', 0);
+  });
+});
+
+describe('own bootstrap, separate from the default CDKToolkit', () => {
+  test('the app, the envelope roles and the bootstrap command use the same qualifier', () => {
+    const cdkJson = JSON.parse(readFileSync(join(__dirname, '..', 'cdk.json'), 'utf8'));
+    expect(cdkJson.context['@aws-cdk/core:bootstrapQualifier']).toBe(QUALIFIER);
+    expect(cdkJson.toolkitStackName).toBe(TOOLKIT_STACK_NAME);
+    const t = synth();
+    expect(JSON.stringify(t.findOutputs('BootstrapCommand'))).toContain(`--qualifier ${QUALIFIER} --toolkit-stack-name ${TOOLKIT_STACK_NAME}`);
+    const policies = JSON.stringify(t.findResources('AWS::IAM::Policy'));
+    expect(policies).toContain(`role/cdk-${QUALIFIER}-deploy-role-111111111111-eu-central-1`);
+    expect(policies).not.toContain('hnb659fds');
   });
 });

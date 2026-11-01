@@ -16,5 +16,9 @@ Profile A (project region outside the MCP endpoint list, for example eu-north-1)
 eu-central-1 endpoint and `--region eu-central-1`, and add `--metadata AWS_REGION=eu-north-1`
 so operations run in the project region. Not yet verified, see docs/FACT-CHECKS.md.
 
+`--read-only` hides more than write tools: the server reaches AWS APIs only through
+`aws___run_script`, which is marked destructive, so the flag leaves docs, regions and skills
+(docs/FACT-CHECKS.md, F7 and F19). With the flag, the agent reads AWS through its own shell.
+
 The read-only flag and the agent role are two separate locks. The role is the one that holds:
 the agent's own shell `aws` calls bypass MCP, so their limits come from IAM, not from the proxy.

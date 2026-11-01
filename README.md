@@ -56,7 +56,8 @@ gate stays green.
 **The account is the safety net.** The envelope puts a permissions boundary on every role CDK
 creates (region lock, no NAT gateways, no large instances, no IAM users or keys, audit stays
 on), replaces AdministratorAccess in `cdk bootstrap` with a narrow execution policy, and sets a
-budget with email alerts. Three profiles, because the AWS sign-up path decides what is possible:
+budget with email alerts. BAA bootstraps its own toolkit stack (`BaaToolkit`, qualifier `baa`),
+so an account that other CDK projects already bootstrapped keeps working as before. Three profiles, because the AWS sign-up path decides what is possible:
 
 | Profile | For | Region | Preventive layer |
 |---|---|---|---|

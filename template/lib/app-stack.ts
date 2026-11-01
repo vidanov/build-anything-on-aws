@@ -1,4 +1,4 @@
-import { CfnElement, CfnOutput, Stack, StackProps, Tags, Validations } from 'aws-cdk-lib';
+import { CfnElement, CfnOutput, DefaultStackSynthesizer, Stack, StackProps, Tags, Token, Validations } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { Api } from './api';
 import { Data } from './data';
@@ -43,6 +43,10 @@ export class AppStack extends Stack {
 function acknowledgeCdkHelpers(stack: Stack, frontend: Frontend): void {
   const helpers = stack.node.children.filter((c) => c.node.id.startsWith('Custom::CDKBucketDeployment'));
   const site = stack.getLogicalId(frontend.bucket.node.defaultChild as CfnElement);
+  // With AWS credentials (a laptop, the deploy job) the account is a literal in the template;
+  // without them (the gates job) it is a token. The finding ID differs, so match both.
+  const account = Token.isUnresolved(stack.account) ? '<AWS::AccountId>' : stack.account;
+  const qualifier = stack.node.tryGetContext('@aws-cdk/core:bootstrapQualifier') ?? DefaultStackSynthesizer.DEFAULT_QUALIFIER;
   const reason = 'CDK-managed BucketDeployment helper: runtime and IAM policy are set by aws-cdk-lib and scoped to the site bucket and the CDK assets bucket.';
   const ids = [
     'AwsSolutions-IAM4[Policy::arn:<AWS::Partition>:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole]',
@@ -52,7 +56,7 @@ function acknowledgeCdkHelpers(stack: Stack, frontend: Frontend): void {
     'AwsSolutions-IAM5[Action::s3:Abort*]',
     'AwsSolutions-IAM5[Action::s3:DeleteObject*]',
     'AwsSolutions-IAM5[Resource::*]',
-    `AwsSolutions-IAM5[Resource::arn:<AWS::Partition>:s3:::cdk-hnb659fds-assets-<AWS::AccountId>-${stack.region}/*]`,
+    `AwsSolutions-IAM5[Resource::arn:<AWS::Partition>:s3:::cdk-${qualifier}-assets-${account}-${stack.region}/*]`,
     `AwsSolutions-IAM5[Resource::<${site}.Arn>/*]`,
     'AwsSolutions-L1',
     'Serverless-LambdaDLQ',

@@ -10,20 +10,22 @@ account), or **assumption** (design choice to revisit). Last update: 2026-11-01.
 | F2 | cdk-nag v3 acknowledges each finding by exact ID, no prefix match | **verified** 2026-11-01 | README of 3.0.2; acknowledging `AwsSolutions-IAM5` did not cover `AwsSolutions-IAM5[Resource::*]` | `lib/app-stack.ts` |
 | F3 | The permissions boundary context puts the boundary on every CDK role, custom resource roles included | **verified** 2026-11-01 | `@aws-cdk/core:permissionsBoundary` in `cdk.json`; jest test "every role carries the baa permissions boundary" | envelope contract |
 | F4 | Every Guard rule and cdk-nag gate can fail | **verified** 2026-11-01 | `npm run drills`: 13 of 13 drills red | all gates |
-| F5 | `aws:ViaAWSMCPService` (bool) marks calls made through the AWS MCP Server | open | check 1 in `scripts/fact-checks.sh` | agent-vs-human policies |
-| F6 | `aws:CalledViaAWSMCP` holds the service principal (Security Blog), not `"true"` (lab page) | open | check 2 | same |
-| F7 | `--read-only` on mcp-proxy-for-aws hides write tools in Claude Code, Codex, Cursor, Kiro | open | list tools in each client | read-only agent |
-| F8 | The eu-central-1 MCP endpoint serves a profile A project in eu-north-1 with `--metadata AWS_REGION=eu-north-1` | open | check 3 in a project account | MCP in profile A |
+| F5 | `aws:ViaAWSMCPService` (bool) marks calls made through the AWS MCP Server | open | checks 1 and 2 in `scripts/fact-checks.sh` (check 2 calls through MCP with `scripts/mcp-call.mjs`) | agent-vs-human policies |
+| F6 | `aws:CalledViaAWSMCP` holds the service principal (Security Blog), not `"true"` (lab page) | open | checks 1 and 2 | same |
+| F7 | `--read-only` on mcp-proxy-for-aws-cli hides every tool that calls AWS APIs, not only write tools | **verified** 2026-11-01 | proxy 1.7.0, eu-central-1, `tools/list`: without the flag 8 tools; with it `aws___run_script` (destructiveHint) and `aws___get_presigned_url` are gone, docs, regions, skills and tasks stay. The proxy filters, so every client sees the same. Open decision: keep the flag (agent reads AWS only through its shell and the `baa-agent` role) or drop it (the role is the lock) | read-only agent, `ephemeral` skill diagnostics |
+| F8 | The eu-central-1 MCP endpoint serves a profile A project in eu-north-1 with `--metadata AWS_REGION=eu-north-1` | open | by hand in a profile A project (not in the script); also check that `baa-boundary` (region deny) lets the agent role reach the eu-central-1 endpoint | MCP in profile A |
 | F9 | The AWS-managed project SCP (`RegionFloor`) allows `iam:CreateOpenIDConnectProvider` and `cdk bootstrap` | open | deploy the envelope in a test project | profile A |
 | F10 | Germany maps to eu-north-1 in the new sign-up | open (docs list from 2026-08-18) | sign up a test project with a German address | profile A default |
 | F11 | Joining or creating AWS Organizations moves a Free plan account to Paid | per AWS docs, not tested | AWS Free Tier plans page | profile B has no SCPs |
-| F12 | Conditional `iam:CreateRole` (boundary must match) works for all roles CDK creates | partly verified | template synth shows the boundary on all roles; the real deploy is check 4 | envelope |
+| F12 | Conditional `iam:CreateRole` (boundary must match) works for all roles CDK creates | partly verified | template synth shows the boundary on all roles; check 4 in `scripts/fact-checks.sh` creates and deletes a role with and without the boundary through the execution role; the first `App-pr-<n>` deploy covers the rest | envelope |
 | F13 | `cdk diff` needs the lookup role or the deploy role | open | CloudTrail during a PR run | `baa-gha-pr` permissions |
 | F14 | GitHub `sub` for `pull_request` events, classic and immutable formats | open | CloudTrail `AssumeRoleWithWebIdentity` from the first PR | OIDC trust |
 | F15 | AWS Security Agent available in eu-central-1 | open | service regions page | optional gate |
 | F16 | Agent Toolkit skills keep their names (no changelog or rename policy) | assumption | preflight records installed skills; compare on each run | routing by name |
 | F17 | Free plan accounts can use Budgets alerts | per AWS docs | budget emails arrive | money stop in profile B |
 | F18 | AWS Agent Toolkit `aws-core` plugin has 25 skills, v1.2.0 | verified 2026-11-01 (repo HEAD 2026-10-30) | `plugins/aws-core/plugin.json` | dependency |
+| F19 | The AWS MCP Server runs AWS API calls only inside `aws___run_script` (sandboxed Python with `call_boto3`); there is no `call_aws` tool | **verified** 2026-11-01 | `tools/list` and a `GetCallerIdentity` call through `scripts/mcp-call.mjs`, eu-central-1. The sandbox blocks dunder attributes and has no `ClientError` name | `scripts/mcp-call.mjs`, skills that say "through the AWS MCP Server" |
+| F20 | Own bootstrap (qualifier `baa`, stack `BaaToolkit`) leaves an existing `CDKToolkit` and the stacks that use it untouched | partly verified | synth: assets and roles are `cdk-baa-*`, no `hnb659fds`; jest test ties `cdk.json`, envelope roles and `BootstrapCommand` together. Real check: bootstrap in the sandbox, then the first `App-pr-<n>` deploy | shared accounts, profile C |
 
 Rule: a fact moves to **verified** only with a dated command output or CI run. Remove the
 fact from this table when the design no longer depends on it.

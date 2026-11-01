@@ -30,4 +30,5 @@ new EnvelopeStack(app, 'BaaEnvelope', {
   monthlyBudgetUsd: Number(ctx('monthlyBudgetUsd', '20')),
   // us-east-1 stays allowed for CloudFront-related calls that land there.
   allowedRegions: [...new Set([region, 'us-east-1'])],
+  trail: ctx('trail', 'true') !== 'false',
 });

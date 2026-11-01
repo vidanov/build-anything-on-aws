@@ -17,11 +17,17 @@ export interface EnvelopeProps extends StackProps {
   readonly monthlyBudgetUsd: number;
   /** Regions the boundary allows. Global services stay reachable. */
   readonly allowedRegions: string[];
+  /** Own management-events trail (default on). Off when an organization trail already records the account. */
+  readonly trail?: boolean;
 }
 
 export const BOUNDARY_NAME = 'baa-boundary';
 export const CFN_EXEC_POLICY_NAME = 'baa-cfn-exec';
-const QUALIFIER = 'hnb659fds';
+// BAA bootstraps its own toolkit stack instead of the default CDKToolkit (qualifier hnb659fds),
+// so an account that other CDK projects already bootstrapped keeps its execution role.
+// QUALIFIER must equal @aws-cdk/core:bootstrapQualifier in cdk.json (test/envelope.test.ts).
+export const QUALIFIER = 'baa';
+export const TOOLKIT_STACK_NAME = 'BaaToolkit';
 
 /**
  * The account envelope. A human deploys it once with admin rights; afterwards nothing in
@@ -134,8 +140,9 @@ export class EnvelopeStack extends Stack {
     });
 
     // 6. Audit: one trail of management events (the first copy is free). Profile A projects
-    //    may already have one from AWS; the trail is skipped there.
-    if (props.profile !== 'A') {
+    //    may already have one from AWS; the trail is skipped there. An account in an
+    //    organization with an organization trail passes -c trail=false (a second copy is billed).
+    if (props.profile !== 'A' && props.trail !== false) {
       const trailBucket = new s3.Bucket(this, 'TrailBucket', {
         blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
         enforceSSL: true,
@@ -159,6 +166,7 @@ export class EnvelopeStack extends Stack {
     new CfnOutput(this, 'BootstrapCommand', {
       value: [
         `npx cdk bootstrap aws://${account}/${region}`,
+        `--qualifier ${QUALIFIER} --toolkit-stack-name ${TOOLKIT_STACK_NAME}`,
         `--cloudformation-execution-policies arn:${Stack.of(this).partition}:iam::${account}:policy/${CFN_EXEC_POLICY_NAME}`,
         `--custom-permissions-boundary ${BOUNDARY_NAME}`,
         '--termination-protection',
