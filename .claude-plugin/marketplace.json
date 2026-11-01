@@ -1,0 +1,14 @@
+{
+  "name": "build-anything-on-aws",
+  "owner": { "name": "Alexey Vidanov", "url": "https://github.com/vidanov" },
+  "description": "Build Anything on AWS. Skills, gates and a learning layer for building safe AWS systems with a coding agent.",
+  "plugins": [
+    {
+      "name": "build-anything-on-aws",
+      "source": "./",
+      "description": "From idea to a deployed, gated and understood AWS system: brief, blueprint, CDK scaffold, deterministic gates with drills, GitHub OIDC pipeline, learner levels.",
+      "category": "development",
+      "keywords": ["aws", "cdk", "well-architected", "learning", "skills"]
+    }
+  ]
+}

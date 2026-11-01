@@ -1,0 +1,6 @@
+# cfn-lint settings for CDK output.
+# W3005: CDK adds DependsOn that a GetAtt already implies. Harmless, generated, noisy.
+# W3045: the CloudFront log bucket needs ACL-based delivery (object writer ownership).
+ignore_checks:
+  - W3005
+  - W3045

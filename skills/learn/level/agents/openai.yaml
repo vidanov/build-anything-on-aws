@@ -1,0 +1,5 @@
+interface:
+  display_name: "Learner level"
+  short_description: "Show or change how much the agent helps"
+policy:
+  allow_implicit_invocation: false

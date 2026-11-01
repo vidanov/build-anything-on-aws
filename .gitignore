@@ -1,0 +1,5 @@
+node_modules/
+cdk.out/
+cdk.out.envelope/
+.DS_Store
+fact-checks-result.txt

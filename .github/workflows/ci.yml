@@ -1,0 +1,42 @@
+# CI for this repository: the template must stay green, every drill must still go red,
+# the hook must block what it promises, and the skills must pass the spec checks.
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  skills-and-hooks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+      - run: node scripts/validate-skills.mjs
+      - run: node --test hooks/test/deny-aws.test.mjs
+      - name: Deny catalog only grows
+        if: github.event_name == 'pull_request'
+        run: node template/gates/scripts/check-append-only.mjs "origin/${{ github.base_ref }}" hooks/deny-patterns.txt
+      - name: Plugin manifest
+        run: npx -y @anthropic-ai/claude-code plugin validate .
+
+  template:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: template
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./template/.github/actions/setup-gates
+        with:
+          working-directory: template
+      - run: npm run gates
+      - run: BAA_STAGE=prod npm run gates
+      - run: npm run drills

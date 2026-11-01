@@ -1,0 +1,48 @@
+# Cost gate for blueprint 01-static-site-api. Deterministic: a resource type that is not on
+# this list fails the PR. Adding a type is a reviewed change to this file (CODEOWNERS).
+# Dollar estimates (Infracost, Pricing MCP) only advise; this list decides.
+
+let allowed_types = [
+  'AWS::CDK::Metadata',
+  'AWS::S3::Bucket',
+  'AWS::S3::BucketPolicy',
+  'AWS::CloudFront::Distribution',
+  'AWS::CloudFront::OriginAccessControl',
+  'AWS::ApiGatewayV2::Api',
+  'AWS::ApiGatewayV2::Stage',
+  'AWS::ApiGatewayV2::Route',
+  'AWS::ApiGatewayV2::Integration',
+  'AWS::Lambda::Function',
+  'AWS::Lambda::Permission',
+  'AWS::Lambda::LayerVersion',
+  'AWS::IAM::Role',
+  'AWS::IAM::Policy',
+  'AWS::DynamoDB::Table',
+  'AWS::Logs::LogGroup',
+  'AWS::CloudWatch::Alarm',
+  'AWS::SNS::Topic',
+  'AWS::SNS::TopicPolicy',
+  'AWS::SNS::Subscription',
+  'Custom::CDKBucketDeployment',
+  'Custom::S3AutoDeleteObjects'
+]
+
+rule only_blueprint_resource_types {
+  Resources.*.Type in %allowed_types
+  <<
+    Violation: this resource type is not part of blueprint 01-static-site-api.
+    Fix: remove it, or open a PR that adds it to gates/guard/cost-allowlist.guard with a cost note.
+    Lesson: card cost-allowlist (why new resource types need a human).
+  >>
+}
+
+let tables = Resources.*[ Type == 'AWS::DynamoDB::Table' ]
+
+rule dynamodb_on_demand when %tables !empty {
+  %tables.Properties.BillingMode == 'PAY_PER_REQUEST'
+  <<
+    Violation: a table uses provisioned capacity, which costs money while idle.
+    Fix: billingMode: dynamodb.BillingMode.PAY_PER_REQUEST.
+    Lesson: WA COST.
+  >>
+}

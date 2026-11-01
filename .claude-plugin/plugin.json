@@ -1,0 +1,28 @@
+{
+  "name": "build-anything-on-aws",
+  "version": "0.1.0",
+  "description": "Build Anything on AWS: skills that take a vibe-coder from an idea to a deployed, gated and understood AWS system. Brief, blueprint, stories, CDK scaffold, deterministic gates with drills, GitHub OIDC pipeline, learning layer with levels.",
+  "author": { "name": "Alexey Vidanov", "url": "https://github.com/vidanov" },
+  "repository": "https://github.com/vidanov/build-anything-on-aws",
+  "license": "MIT",
+  "keywords": ["aws", "cdk", "well-architected", "cdk-nag", "cfn-guard", "github-actions", "oidc", "learning", "skills", "vibe-coding"],
+  "skills": [
+    "./skills/start/baa",
+    "./skills/start/preflight",
+    "./skills/start/envelope",
+    "./skills/plan/aws-brief",
+    "./skills/plan/blueprint",
+    "./skills/plan/user-stories",
+    "./skills/build/scaffold",
+    "./skills/build/improve-loop",
+    "./skills/ship/pipeline",
+    "./skills/ship/ephemeral",
+    "./skills/ship/wa-checkpoint",
+    "./skills/learn/explain-fail",
+    "./skills/learn/level",
+    "./skills/learn/debrief"
+  ],
+  "outputStyles": "./output-styles/",
+  "hooks": "./hooks/hooks.json",
+  "mcpServers": "./.mcp.json"
+}

@@ -1,0 +1,7 @@
+# Gates, pipelines and decisions change only with a human review.
+# Replace @owner with the GitHub user who approves (the learner's mentor, or the learner at level 2).
+/gates/          @owner
+/.github/        @owner
+/envelope/       @owner
+/docs/adr/       @owner
+/cdk.json        @owner

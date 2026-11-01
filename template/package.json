@@ -1,0 +1,38 @@
+{
+  "name": "baa-app",
+  "version": "0.1.0",
+  "private": true,
+  "bin": {
+    "app": "bin/app.js"
+  },
+  "scripts": {
+    "build": "tsc --noEmit",
+    "test": "jest && node --test test/handler.test.mjs",
+    "synth": "cdk synth --quiet",
+    "diff": "cdk diff",
+    "gates": "bash gates/run-gates.sh",
+    "envelope:synth": "cdk synth --app 'npx ts-node --prefer-ts-exts envelope/bin.ts' --output cdk.out.envelope",
+    "envelope:deploy": "cdk deploy --app 'npx ts-node --prefer-ts-exts envelope/bin.ts' --output cdk.out.envelope BaaEnvelope",
+    "drills": "node gates/drills/run-drills.mjs",
+    "verify": "npm run gates && npm run drills"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "2.275.0",
+    "cdk-nag": "3.0.2",
+    "constructs": "10.8.1"
+  },
+  "devDependencies": {
+    "@aws-sdk/client-dynamodb": "3.1161.0",
+    "@types/aws-lambda": "8.10.164",
+    "@types/jest": "30.0.0",
+    "@types/node": "26.6.6",
+    "aws-cdk": "2.1147.0",
+    "jest": "30.5.2",
+    "ts-jest": "29.4.15",
+    "ts-node": "10.9.2",
+    "typescript": "5.9.3"
+  }
+}

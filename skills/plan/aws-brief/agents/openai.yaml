@@ -1,0 +1,5 @@
+interface:
+  display_name: "AWS brief"
+  short_description: "Interview to a brief before building on AWS"
+policy:
+  allow_implicit_invocation: false

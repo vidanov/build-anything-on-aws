@@ -1,0 +1,5 @@
+interface:
+  display_name: "Build Anything on AWS"
+  short_description: "Pick the next step for an AWS project"
+policy:
+  allow_implicit_invocation: false

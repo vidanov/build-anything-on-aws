@@ -1,0 +1,27 @@
+name: Set up gate tools
+description: Node, npm ci, cfn-lint and cfn-guard at pinned versions
+inputs:
+  working-directory:
+    description: Folder with package.json and .nvmrc
+    default: .
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version-file: ${{ inputs.working-directory }}/.nvmrc
+        cache: npm
+        cache-dependency-path: ${{ inputs.working-directory }}/package-lock.json
+    - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+      with:
+        python-version: '3.13'
+    - shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        npm ci
+        pip install --quiet cfn-lint==1.59.0
+        curl -sSL -o /tmp/cfn-guard.tgz https://github.com/aws-cloudformation/cloudformation-guard/releases/download/3.2.1/cfn-guard-v3-x86_64-ubuntu-latest.tar.gz
+        echo "09c2b8cfd81d513374a8da89d4805dc55006a3da52bbf598e272022d4d198e94  /tmp/cfn-guard.tgz" | sha256sum -c -
+        tar xzf /tmp/cfn-guard.tgz -C /tmp
+        sudo install /tmp/cfn-guard-v3-x86_64-ubuntu-latest/cfn-guard /usr/local/bin/cfn-guard
+        cfn-guard --version && cfn-lint --version

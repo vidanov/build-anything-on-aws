@@ -1,0 +1,14 @@
+{
+  "description": "Build Anything on AWS: block dangerous commands, require explain-back before push",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/deny-aws.mjs\"", "timeout": 10 },
+          { "type": "command", "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/require-explain-back.mjs\"", "timeout": 10 }
+        ]
+      }
+    ]
+  }
+}

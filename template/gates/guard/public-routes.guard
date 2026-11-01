@@ -1,0 +1,15 @@
+# Every HTTP API route needs an authorizer unless it is on this list.
+# Each entry must have an ADR in docs/adr/. Changing this list needs review (CODEOWNERS).
+
+let public_routes = ['GET /health', 'POST /visits']
+let routes = Resources.*[ Type == 'AWS::ApiGatewayV2::Route' ]
+let open_routes = %routes[ Properties.AuthorizationType not exists or Properties.AuthorizationType == 'NONE' ]
+
+rule open_routes_are_listed when %open_routes !empty {
+  %open_routes.Properties.RouteKey in %public_routes
+  <<
+    Violation: a route accepts anonymous calls but is not on the public list.
+    Fix: add an authorizer (Cognito JWT in M2), or add the route here with an ADR.
+    Lesson: card public-route (WA SEC02 identity).
+  >>
+}

@@ -1,0 +1,34 @@
+# Stateful resources follow the stage. Input parameter file: {"baa_stage": "pr" | "dev" | "prod"}.
+#   pr and dev: Delete, so throwaway stacks leave nothing behind (and cost nothing later).
+#   prod: Retain, plus deletion protection on tables.
+
+let stateful = Resources.*[
+  Type in ['AWS::S3::Bucket', 'AWS::DynamoDB::Table', 'AWS::Logs::LogGroup']
+]
+let prod_tables = Resources.*[ Type == 'AWS::DynamoDB::Table' ]
+
+rule throwaway_stages_delete when baa_stage in ['pr', 'dev'] %stateful !empty {
+  %stateful.DeletionPolicy == 'Delete'
+  <<
+    Violation: a throwaway stack would leave a bucket, table or log group behind.
+    Fix: removalPolicy: removalFor(settings) from lib/settings.ts (DESTROY outside prod).
+    Lesson: card removal-policy (L2 constructs RETAIN by default).
+  >>
+}
+
+rule prod_retains when baa_stage == 'prod' %stateful !empty {
+  %stateful.DeletionPolicy == 'Retain'
+  <<
+    Violation: deleting the prod stack would delete production data.
+    Fix: removalPolicy RETAIN in prod.
+    Lesson: WA REL09.
+  >>
+}
+
+rule prod_table_protected when baa_stage == 'prod' %prod_tables !empty {
+  %prod_tables.Properties.DeletionProtectionEnabled == true
+  <<
+    Violation: the prod table can be deleted by a single API call.
+    Fix: deletionProtection: true in prod.
+  >>
+}

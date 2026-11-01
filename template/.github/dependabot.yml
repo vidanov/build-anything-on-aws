@@ -1,0 +1,11 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule: { interval: weekly }
+    groups:
+      cdk:
+        patterns: ['aws-cdk', 'aws-cdk-lib', 'constructs', 'cdk-nag']
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }

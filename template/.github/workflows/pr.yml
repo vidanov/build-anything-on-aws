@@ -1,0 +1,88 @@
+# Every pull request: gates from the trusted base branch, drills, cdk diff, a throwaway
+# App-pr-<n> stack, a smoke test, and evidence written by CI (not by the agent).
+name: pr
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-${{ github.event.number }}
+  cancel-in-progress: false
+
+env:
+  BAA_STAGE: pr-${{ github.event.number }}
+  BAA_REGION: ${{ vars.AWS_REGION }}
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Use the gates from the base branch, not from this PR
+        # A PR may propose new gates, but it is judged by the gates already on main.
+        # Changes to gates/, .github/ or hooks/ need a CODEOWNERS review instead.
+        run: |
+          git checkout "origin/${{ github.base_ref }}" -- gates/ 2>/dev/null || echo "no gates on base yet (first PR)"
+          git status --short gates/
+      - uses: ./.github/actions/setup-gates
+      - name: Gates
+        run: npm run gates
+      - name: Drills (each gate must still be able to fail)
+        run: npm run drills
+      - name: Explain-back before merge (learner level 1 and 2)
+        run: node gates/scripts/check-explain-back.mjs
+      - name: Evidence
+        if: always()
+        run: node gates/scripts/evidence.mjs --out evidence-gates.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: evidence-gates-${{ github.event.number }}
+          path: |
+            evidence-gates.json
+            cdk.out/gates-result.json
+            cdk.out/policy-validation-report.json
+
+  preview:
+    needs: gates
+    # Fork PRs get no OIDC token and never touch AWS.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup-gates
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_PR }}
+          aws-region: ${{ vars.AWS_REGION }}
+          allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
+          role-session-name: gha-pr-${{ github.event.number }}
+      - name: cdk diff
+        run: |
+          npx cdk diff "App-$BAA_STAGE" -c "baa:stage=$BAA_STAGE" -c "baa:region=$BAA_REGION" --no-color > diff.txt 2>&1 || true
+          node gates/scripts/diff-comment.mjs diff.txt > comment.md
+      - name: Post the diff next to the learner's prediction
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr comment ${{ github.event.number }} --body-file comment.md --edit-last --create-if-none
+      - name: Deploy the throwaway stack
+        run: npx cdk deploy "App-$BAA_STAGE" -c "baa:stage=$BAA_STAGE" -c "baa:region=$BAA_REGION" --require-approval never --outputs-file outputs.json
+      - name: Smoke test (manufactured oracle)
+        run: node gates/scripts/smoke.mjs outputs.json
+      - name: Evidence
+        if: always()
+        run: node gates/scripts/evidence.mjs --deploy outputs.json --out evidence-deploy.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: evidence-deploy-${{ github.event.number }}
+          path: evidence-deploy.json

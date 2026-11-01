@@ -1,0 +1,71 @@
+# main -> App-dev automatically. App-prod only through the GitHub environment "prod",
+# which has required reviewers (a human approves every production change).
+name: deploy
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  dev:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      BAA_STAGE: dev
+      BAA_REGION: ${{ vars.AWS_REGION }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup-gates
+      - run: npm run gates
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_DEV }}
+          aws-region: ${{ vars.AWS_REGION }}
+          allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
+      - run: npx cdk deploy App-dev -c baa:stage=dev -c "baa:region=$BAA_REGION" -c "baa:alertEmail=${{ vars.ALERT_EMAIL }}" --require-approval never --outputs-file outputs.json
+      - run: node gates/scripts/smoke.mjs outputs.json
+      - if: always()
+        run: node gates/scripts/evidence.mjs --deploy outputs.json --out evidence-dev.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: evidence-dev-${{ github.sha }}
+          path: evidence-dev.json
+
+  prod:
+    needs: dev
+    runs-on: ubuntu-latest
+    environment: prod
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      BAA_STAGE: prod
+      BAA_REGION: ${{ vars.AWS_REGION }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup-gates
+      - run: npm run gates
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_PROD }}
+          aws-region: ${{ vars.AWS_REGION }}
+          allowed-account-ids: ${{ vars.AWS_PROD_ACCOUNT_ID || vars.AWS_ACCOUNT_ID }}
+      - run: npx cdk deploy App-prod -c baa:stage=prod -c "baa:region=$BAA_REGION" -c "baa:alertEmail=${{ vars.ALERT_EMAIL }}" --require-approval never --outputs-file outputs.json
+      - run: node gates/scripts/smoke.mjs outputs.json
+      - if: always()
+        run: node gates/scripts/evidence.mjs --deploy outputs.json --out evidence-prod.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: evidence-prod-${{ github.sha }}
+          path: evidence-prod.json

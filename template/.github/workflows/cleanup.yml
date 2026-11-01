@@ -1,0 +1,28 @@
+# When a PR closes, its App-pr-<n> stack goes away. PR stacks delete their data by design
+# (gates/guard/stage-removal.guard), so nothing is left behind and nothing keeps costing.
+name: cleanup
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: read
+
+jobs:
+  destroy:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      BAA_STAGE: pr-${{ github.event.number }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup-gates
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_PR }}
+          aws-region: ${{ vars.AWS_REGION }}
+          allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
+      - run: npx cdk destroy "App-$BAA_STAGE" -c "baa:stage=$BAA_STAGE" -c "baa:region=${{ vars.AWS_REGION }}" --force

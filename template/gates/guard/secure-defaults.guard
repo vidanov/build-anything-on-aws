@@ -1,0 +1,72 @@
+# Secure defaults for every blueprint. Native oracle: reads cdk.out, no AWS account needed.
+# Each rule names the Well-Architected question it protects, so a failure can become a lesson.
+
+let buckets = Resources.*[ Type == 'AWS::S3::Bucket' ]
+let bucket_policies = Resources.*[ Type == 'AWS::S3::BucketPolicy' ]
+let tables = Resources.*[ Type == 'AWS::DynamoDB::Table' ]
+let log_groups = Resources.*[ Type == 'AWS::Logs::LogGroup' ]
+let function_urls = Resources.*[ Type == 'AWS::Lambda::Url' ]
+
+# SEC08: protect data at rest. SEC03: no public buckets.
+rule s3_block_public_access when %buckets !empty {
+  %buckets.Properties.PublicAccessBlockConfiguration.BlockPublicAcls == true
+  %buckets.Properties.PublicAccessBlockConfiguration.BlockPublicPolicy == true
+  %buckets.Properties.PublicAccessBlockConfiguration.IgnorePublicAcls == true
+  %buckets.Properties.PublicAccessBlockConfiguration.RestrictPublicBuckets == true
+  <<
+    Violation: an S3 bucket can become public.
+    Fix: set blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL on the bucket.
+    Lesson: WA SEC03 (permissions), see docs/LEARNED.md card s3-public.
+  >>
+}
+
+rule s3_encrypted when %buckets !empty {
+  %buckets.Properties.BucketEncryption exists
+  <<
+    Violation: an S3 bucket has no encryption setting.
+    Fix: set encryption: s3.BucketEncryption.S3_MANAGED (or KMS).
+    Lesson: WA SEC08 (data at rest).
+  >>
+}
+
+# SEC09: protect data in transit. enforceSSL adds a Deny when aws:SecureTransport is false.
+rule s3_tls_only when %bucket_policies !empty {
+  %bucket_policies {
+    some Properties.PolicyDocument.Statement[*].Condition.Bool.'aws:SecureTransport' == 'false'
+    <<
+      Violation: a bucket policy does not deny plain HTTP.
+      Fix: set enforceSSL: true on the bucket.
+      Lesson: WA SEC09 (data in transit).
+    >>
+  }
+}
+
+# REL09: back up data. Point-in-time recovery costs little and saves a lot.
+rule dynamodb_pitr when %tables !empty {
+  %tables.Properties.PointInTimeRecoverySpecification.PointInTimeRecoveryEnabled == true
+  <<
+    Violation: a DynamoDB table has no point-in-time recovery.
+    Fix: pointInTimeRecoverySpecification: { pointInTimeRecoveryEnabled: true }.
+    Lesson: WA REL09 (backups).
+  >>
+}
+
+# COST + OPS: logs without retention grow and cost money forever.
+rule log_retention when %log_groups !empty {
+  %log_groups.Properties.RetentionInDays exists
+  <<
+    Violation: a log group keeps logs forever.
+    Fix: set retention: logs.RetentionDays.ONE_MONTH (or what the brief says).
+    Lesson: WA COST and OPS, see card log-retention.
+  >>
+}
+
+# SEC: a Lambda function URL without auth is a public endpoint nobody reviewed.
+rule no_open_function_url when %function_urls !empty {
+  %function_urls.Properties.AuthType != 'NONE'
+  <<
+    Violation: a Lambda function URL accepts anonymous calls.
+    Fix: use AuthType AWS_IAM, or put the function behind the HTTP API with a listed public route.
+    Lesson: WA SEC (identity and access).
+  >>
+}

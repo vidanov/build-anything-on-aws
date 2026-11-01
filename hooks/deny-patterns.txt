@@ -1,0 +1,30 @@
+# Commands a coding agent must never run in a Build Anything on AWS project.
+# Format: id<TAB>extended regex<TAB>why. Append only: removing a line needs review (CODEOWNERS).
+# aws-s1..aws-s17 adapted from the AWS Safety Pack in vidanov/quarterdeck (MIT).
+# This hook is a seatbelt, not the boundary: the agent's AWS credentials must not allow these anyway.
+aws-s1	aws[[:space:]]+organizations[[:space:]]+delete-organization	deletes the whole organization
+aws-s2	aws[[:space:]]+organizations[[:space:]]+remove-account-from-organization	removes an account from the organization
+aws-s3	aws[[:space:]]+account[[:space:]]+close-account	closes an AWS account
+aws-s4	aws[[:space:]]+s3api[[:space:]]+put-bucket-acl.*(public-read|public-read-write|authenticated-read)	makes a bucket public through an ACL
+aws-s5	aws[[:space:]]+s3api[[:space:]]+delete-public-access-block	removes S3 Block Public Access
+aws-s6	aws[[:space:]]+s3api[[:space:]]+put-bucket-policy.*\*.*Effect.*Allow	bucket policy that allows *
+aws-s7	aws[[:space:]]+ec2[[:space:]]+authorize-security-group-(ingress|egress).*0\.0\.0\.0/0	security group open to the internet
+aws-s8	aws[[:space:]]+iam[[:space:]]+attach-(user|role|group)-policy.*AdministratorAccess	attaches AdministratorAccess
+aws-s9	aws[[:space:]]+iam[[:space:]]+create-policy-version.*--set-as-default	rewrites a policy in place (privilege escalation)
+aws-s10	aws[[:space:]]+iam[[:space:]]+delete-account-password-policy	deletes the account password policy
+aws-s11	aws[[:space:]]+cloudtrail[[:space:]]+(stop-logging|delete-trail)	turns off the audit trail
+aws-s12	aws[[:space:]]+configservice[[:space:]]+delete-configuration-recorder	turns off AWS Config
+aws-s13	aws[[:space:]]+iam[[:space:]]+create-access-key	creates a long-lived access key
+aws-s14	aws[[:space:]]+kms[[:space:]]+schedule-key-deletion	schedules a KMS key for deletion
+aws-s15	aws[[:space:]]+kms[[:space:]]+disable-key	disables a KMS key
+aws-s16	aws[[:space:]]+rds[[:space:]]+delete-db-(instance|cluster).*--skip-final-snapshot	deletes a database without a snapshot
+aws-s17	aws[[:space:]]+ec2[[:space:]]+modify-instance-attribute.*DisableApiTermination.*false	removes termination protection
+baa-1	(^|[;&|[:space:]])(npx[[:space:]]+)?cdk[[:space:]]+(deploy|destroy)	deploys and deletes go through a pull request and GitHub Actions, not the agent
+baa-2	aws[[:space:]]+secretsmanager[[:space:]]+get-secret-value	the agent uses secrets by name and never reads their values
+baa-3	aws[[:space:]]+ssm[[:space:]]+get-parameters?[[:space:]].*--with-decryption	the agent never decrypts secure parameters
+baa-4	aws[[:space:]]+cloudformation[[:space:]]+(delete-stack|update-stack|create-stack|deploy)	stack changes go through CI
+baa-5	aws[[:space:]]+iam[[:space:]]+(put|delete)-role-permissions-boundary	the permissions boundary is part of the envelope
+baa-6	aws[[:space:]]+iam[[:space:]]+(create-user|create-login-profile)	no IAM users; people sign in with aws login or Identity Center
+baa-7	git[[:space:]]+push.*(--force|-f([[:space:]]|$))	no history rewrite on shared branches
+baa-8	git[[:space:]]+(commit|push).*--no-verify	never skip the pre-commit gates
+baa-9	(cat|less|more|head|tail|grep|sed|awk)[[:space:]].*(\.env([[:space:]]|$|\.)|\.aws/credentials)	never print secrets into the session

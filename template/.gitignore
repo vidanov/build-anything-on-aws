@@ -1,0 +1,13 @@
+node_modules/
+cdk.out/
+cdk.out.envelope/
+*.js
+!jest.config.js
+*.d.ts
+.env
+.env.*
+outputs.json
+diff.txt
+comment.md
+evidence-*.json
+.DS_Store
