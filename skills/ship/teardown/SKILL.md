@@ -31,13 +31,13 @@ Close every open pull request. `cleanup.yml` deletes `App-pr-<n>`. A stack whose
 Actions, teardown, Run workflow, on `main`. Pick the stage and type the stack name (`App-dev` or `App-prod`) into the confirm field; a wrong name skips the job. The workflow runs `cdk destroy` with the stage's GitHub role, the same way `cleanup.yml` does for PR stacks.
 
 - `App-dev` deletes its table and buckets with it.
-- `App-prod` deletes the stack but keeps its table (deletion protection, DeletionPolicy Retain) and both buckets. This is the prod shape `stage-removal.guard` requires: a deleted stack must not take customer data with it.
+- `App-prod` deletes the stack but keeps its table (deletion protection, DeletionPolicy Retain), both buckets and its log groups. This is the prod shape `stage-removal.guard` requires: a deleted stack must not take customer data with it.
 
 A `DELETE_FAILED` on a logs bucket with "The bucket you tried to delete is not empty" means a CloudFront log arrived after the bucket was emptied (`docs/FACT-CHECKS.md`, F25). Read the stack events as `baa-agent` to confirm it. The human empties that one bucket in the console and runs the workflow again.
 
 ## 4. Prod data
 
-The human runs `bash envelope/teardown.sh prod-data` with their admin sign-in. It stops while `App-prod` still exists, lists what the deleted stack kept, and asks the human to type `App-prod-data`. Then it offers the backup, turns off deletion protection, deletes the table, and empties (all versions) and deletes each bucket.
+The human runs `bash envelope/teardown.sh prod-data` with their admin sign-in. It stops while `App-prod` still exists, lists what the deleted stack kept, and asks the human to type `App-prod-data`. Then it offers the backup, turns off deletion protection, deletes the table, empties (all versions) and deletes each bucket, and deletes the log groups.
 
 Deleting a table or a versioned bucket cannot be undone. Say that before the human types the confirmation, in the learner's language.
 

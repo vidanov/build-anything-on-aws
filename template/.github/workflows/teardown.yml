@@ -18,8 +18,11 @@ on:
 permissions:
   contents: read
 
+# Not the "deploy" group: a group holds one pending run, and a second pending run cancels the
+# first (a prod teardown queued behind a deploy cancelled the dev teardown queued before it).
+# CloudFormation itself refuses to delete a stack while a deploy is updating it.
 concurrency:
-  group: deploy
+  group: teardown-${{ inputs.stage }}
   cancel-in-progress: false
 
 jobs:

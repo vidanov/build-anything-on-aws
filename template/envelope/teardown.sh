@@ -3,7 +3,7 @@
 # admin rights, one part at a time, in this order (the `teardown` skill explains each):
 #   bash envelope/teardown.sh inventory   # read-only: what exists, what each stack left behind
 #   (teardown.yml removes App-dev and App-prod; closing PRs removes App-pr-<n>)
-#   bash envelope/teardown.sh prod-data   # table and buckets that App-prod keeps on delete
+#   bash envelope/teardown.sh prod-data   # table, buckets and log groups App-prod keeps on delete
 #   bash envelope/teardown.sh toolkit     # BaaToolkit and its staging bucket
 #   bash envelope/teardown.sh envelope    # BaaEnvelope: boundary, roles, OIDC, budget, trail
 # Every part that deletes asks for the name of what it deletes. Region: BAA_REGION or cdk.json.
@@ -39,6 +39,8 @@ exists() { # type id
     AWS::S3::Bucket) aws s3api head-bucket --bucket "$2" >/dev/null 2>&1 ;;
     AWS::DynamoDB::Table) aws dynamodb describe-table --table-name "$2" >/dev/null 2>&1 ;;
     AWS::ECR::Repository) aws ecr describe-repositories --repository-names "$2" >/dev/null 2>&1 ;;
+    AWS::Logs::LogGroup) [ "$(aws logs describe-log-groups --log-group-name-prefix "$2" \
+      --query "length(logGroups[?logGroupName=='$2'])" --output text)" = 1 ] ;;
     *) return 0 ;;
   esac
 }
@@ -78,6 +80,8 @@ remove() { # type id
       aws dynamodb wait table-not-exists --table-name "$2" && echo "  deleted table $2" ;;
     AWS::ECR::Repository)
       aws ecr delete-repository --repository-name "$2" --force >/dev/null && echo "  deleted repository $2" ;;
+    AWS::Logs::LogGroup)
+      aws logs delete-log-group --log-group-name "$2" && echo "  deleted log group $2" ;;
     *) echo "  $1 $2: not handled here, remove it in the console" ;;
   esac
 }
@@ -119,7 +123,7 @@ case "$PART" in
   prod-data)
     require_admin
     [ "$(stack_status App-prod)" = NONE ] || { echo "App-prod still exists. Run the teardown workflow with stage prod first."; exit 1; }
-    say "Data that App-prod kept: table and buckets. Deleting them cannot be undone."
+    say "Data that App-prod kept: table, buckets and log groups. Deleting them cannot be undone."
     retained App-prod | sed 's/^/  /'
     confirm App-prod-data
     remove_retained App-prod
