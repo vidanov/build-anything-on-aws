@@ -30,6 +30,8 @@ removal of the toolkit and the envelope, profiles A and C. Each claim and its ev
   A private repository on GitHub Free cannot require a reviewer for prod (F22), so prod deploys
   only from `main` and only when you start it by hand. A public repository or GitHub Pro adds
   the reviewer.
+- **One account is for learning.** Code in a pull request can change `App-prod` through the
+  shared CDK toolkit (F32). Once your app has real users or data, prod needs its own account.
 - **Tools:** Node.js 22+, AWS CLI 2.35+, GitHub CLI, `uv`, `cfn-lint`, `cfn-guard` 3.x.
   `preflight` checks them.
 

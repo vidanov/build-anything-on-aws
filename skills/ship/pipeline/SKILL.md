@@ -28,6 +28,7 @@ Explain each in one line before setting anything:
 A private repository on GitHub Free gets none of 2 (reviewer), 3 or 4: the API answers 422 or 403 "Upgrade to GitHub Pro or make this repository public" (`docs/FACT-CHECKS.md`, F22). Say so plainly, then:
 - What still holds: prod runs only by hand, and only from `main`: the repository's subject template puts the branch into the OIDC token, and `baa-gha-prod` trusts `environment:prod:ref:refs/heads/main` only (envelope step 5). The deploy jobs run the gates again before they deploy, and the AWS roles limit what any deploy can do.
 - What does not: CODEOWNERS review is advice, and a red PR can be merged; the dev deploy then stops at the gates.
+- In one account, on any plan: workflows run from the PR branch, and `baa-gha-pr` reaches the shared `BaaToolkit` deploy role, which can change any stack, `App-prod` included (`docs/FACT-CHECKS.md`, F32). Tell the learner: one account is for learning. Once real users or data are in prod, prod belongs in its own account.
 - The choice is the learner's: a public repository (all three are free there; the account ID shows up in public logs) or GitHub Pro.
 
 ## 3. Prove it
