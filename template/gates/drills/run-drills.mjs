@@ -1,19 +1,30 @@
 #!/usr/bin/env node
 // Drills prove that each gate can fail. Each drill plants one known violation and expects
 // its gate to go red. If a drill comes back green, the gate is broken, and this script fails.
-// Run from the project root after `npm run synth`: node gates/drills/run-drills.mjs
+// Run from the project root: node gates/drills/run-drills.mjs
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-const templateFile = readdirSync('cdk.out').find((f) => /^App-.*\.template\.json$/.test(f));
+const work = mkdtempSync(join(tmpdir(), 'baa-drill-'));
+
+// The guard drills plant violations into a PR-stage template. cdk.out holds whatever stage
+// was synthesized last (after `BAA_STAGE=prod npm run gates` it is App-prod, where
+// prod-deletes-data cannot fail), so take App-pr-* from there or synthesize pr-0 here.
+const prTemplate = (dir) => existsSync(dir) && readdirSync(dir).find((f) => /^App-pr-\d+\.template\.json$/.test(f));
+let baseDir = 'cdk.out';
+if (!prTemplate(baseDir)) {
+  baseDir = join(work, 'synth');
+  // cdk-nag errors make synth exit 1 with the template written; the gates judge those.
+  spawnSync('npx', ['cdk', 'synth', '--quiet', '-c', 'baa:stage=pr-0', '-c', 'baa:alertEmail=gates@example.invalid', '--output', baseDir], { encoding: 'utf8' });
+}
+const templateFile = prTemplate(baseDir);
 if (!templateFile) {
-  console.error('run-drills: synth first (npm run synth).');
+  console.error('run-drills: could not synthesize a PR-stage template (npx cdk synth -c baa:stage=pr-0).');
   process.exit(2);
 }
-const base = JSON.parse(readFileSync(join('cdk.out', templateFile), 'utf8'));
-const work = mkdtempSync(join(tmpdir(), 'baa-drill-'));
+const base = JSON.parse(readFileSync(join(baseDir, templateFile), 'utf8'));
 
 const firstOf = (t, type) => Object.values(t.Resources).find((r) => r.Type === type);
 
