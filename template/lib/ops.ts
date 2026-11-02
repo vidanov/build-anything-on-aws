@@ -1,4 +1,4 @@
-import { Duration, aws_apigatewayv2 as apigw, aws_cloudwatch as cw, aws_cloudwatch_actions as cwActions, aws_lambda as lambda, aws_sns as sns, aws_sns_subscriptions as subs } from 'aws-cdk-lib';
+import { Duration, Validations, aws_apigatewayv2 as apigw, aws_cloudwatch as cw, aws_cloudwatch_actions as cwActions, aws_lambda as lambda, aws_sns as sns, aws_sns_subscriptions as subs } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { Settings } from './settings';
 
@@ -24,7 +24,11 @@ export class Ops extends Construct {
       enforceSSL: true,
     });
     if (settings.alertEmail) {
-      this.topic.addSubscription(new subs.EmailSubscription(settings.alertEmail));
+      const email = this.topic.addSubscription(new subs.EmailSubscription(settings.alertEmail));
+      Validations.of(email).acknowledge({
+        id: 'Serverless-SNSRedrivePolicy',
+        reason: 'Email to the person who runs the app. A dead-letter queue needs SQS, which the cost allowlist leaves out, for a message whose alarm state CloudWatch keeps anyway.',
+      });
     }
 
     const action = new cwActions.SnsAction(this.topic);

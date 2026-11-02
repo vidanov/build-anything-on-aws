@@ -11,6 +11,10 @@ STAGE="${BAA_STAGE:-pr-0}"
 case "$STAGE" in pr-*) KIND=pr ;; dev) KIND=dev ;; prod) KIND=prod ;; *) echo "BAA_STAGE must be pr-<n>, dev or prod"; exit 2 ;; esac
 REGION_ARGS=()
 [ -n "${BAA_REGION:-}" ] && REGION_ARGS=(-c "baa:region=${BAA_REGION}")
+# deploy.yml passes baa:alertEmail, which adds an email subscription with cdk-nag findings of
+# its own (App-dev failed on one that the gates never saw). Synthesize with it on every stage;
+# PR stacks deploy the same template minus the subscription.
+ALERT_ARGS=(-c "baa:alertEmail=${BAA_ALERT_EMAIL:-gates@example.invalid}")
 
 RESULTS=()
 FAILED=0
@@ -37,7 +41,7 @@ run handler-tests native true node --test test/handler.test.mjs
 # Synth. cdk-nag v3 errors make synth exit 1, but nag-report reads the report either way,
 # so the gate does not depend on the exit code.
 # ${a[@]+"${a[@]}"}: macOS /bin/bash 3.2 treats an empty array as unset under set -u.
-npx cdk synth --quiet -c "baa:stage=$STAGE" ${REGION_ARGS[@]+"${REGION_ARGS[@]}"} >cdk.out/.synth.log 2>&1
+npx cdk synth --quiet -c "baa:stage=$STAGE" "${ALERT_ARGS[@]}" ${REGION_ARGS[@]+"${REGION_ARGS[@]}"} >cdk.out/.synth.log 2>&1
 SYNTH=$?
 TEMPLATE=$(ls cdk.out/App-*.template.json 2>/dev/null | head -1)
 if [ -z "$TEMPLATE" ]; then
