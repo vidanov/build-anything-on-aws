@@ -17,7 +17,7 @@ Open the profile file named in `.baa/preflight.json` (`envelope/profiles/A-proje
 
 - GitHub owner and repository name. For repos created or renamed after 2026-07-15 also the numeric IDs: `gh api repos/<owner>/<repo> --jq '.owner.id, .id'`.
 - Alert email for budget and alarms.
-- Monthly budget in USD (default 20).
+- Monthly budget in USD. The budget counts the whole account. A new account takes the default 20. In an account that already runs other things, ask the human to read last month's cost first (their admin sign-in; the agent role does not exist yet): `aws ce get-cost-and-usage --time-period Start=<first day of last month>,End=<first day of this month> --granularity MONTHLY --metrics UnblendedCost`. Budget = that cost plus 20, rounded up. A budget below what the account already spends sends every alert in the first week, and the learner learns to ignore them.
 - Region from `.baa/preflight.json`.
 
 ## 3. Write the wizard

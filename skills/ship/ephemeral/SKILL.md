@@ -18,11 +18,13 @@ PR stacks delete their data on purpose: `stage-removal.guard` requires `Deletion
 
 ## When a deploy fails
 
-You have read-only access. Read, do not change:
+You have read-only access through the `baa-agent` profile. Read, do not change:
 
-1. `aws cloudformation describe-stack-events --stack-name App-pr-<n> --max-items 30` and find the first `*_FAILED` event; that is the cause, later failures are consequences.
-2. For a runtime error in Lambda, use the AWS MCP Server's serverless diagnostics (read-only) after the learner has stated a hypothesis (level 1 and 2).
+1. `AWS_PROFILE=baa-agent aws cloudformation describe-stack-events --stack-name App-pr-<n> --max-items 30` and find the first `*_FAILED` event; that is the cause, later failures are consequences. A stack that is already gone still has its events in the failed `pr.yml` or `cleanup.yml` run log.
+2. For a runtime error in Lambda, after the learner has stated a hypothesis (level 1 and 2), read the function's log group: find it with `AWS_PROFILE=baa-agent aws cloudformation describe-stack-resources --stack-name App-pr-<n> --query "StackResources[?ResourceType=='AWS::Logs::LogGroup']"`, then `AWS_PROFILE=baa-agent aws logs tail <log group> --since 30m`. The Agent Toolkit skill `aws-serverless` knows what the Lambda errors mean.
 3. Name the cause as confirmed only if an event or log line shows it. Otherwise say unverified and what you would check next.
+
+The AWS MCP Server runs with `--read-only`, which hides every tool that calls AWS APIs (`docs/FACT-CHECKS.md`, F7). Use it for AWS documentation, not for reading the account; the shell with `baa-agent` does that, and the role, not the proxy, keeps it read-only.
 
 Then call the Skill tool with `explain-fail` and fix in code, not in the console.
 
