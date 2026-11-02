@@ -25,7 +25,11 @@ export class Frontend extends Construct {
     const { settings } = props;
     const throwaway = settings.kind !== 'prod';
 
-    const logBucket = new s3.Bucket(this, 'Logs', {
+    // PR stacks write no access logs. CloudFront delivers standard logs minutes late, so a log
+    // can land in the logs bucket after auto-delete emptied it, and the PR stack's delete fails
+    // on a non-empty bucket (seen on baa-test-app#3, docs/FACT-CHECKS.md F25). App-dev and
+    // App-prod keep their access logs.
+    const logBucket = settings.kind === 'pr' ? undefined : new s3.Bucket(this, 'Logs', {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       enforceSSL: true,
       encryption: s3.BucketEncryption.S3_MANAGED,
@@ -40,8 +44,8 @@ export class Frontend extends Construct {
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       enforceSSL: true,
       encryption: s3.BucketEncryption.S3_MANAGED,
-      serverAccessLogsBucket: logBucket,
-      serverAccessLogsPrefix: 's3/',
+      // A prefix without a bucket would make the site bucket log into itself.
+      ...(logBucket && { serverAccessLogsBucket: logBucket, serverAccessLogsPrefix: 's3/' }),
       versioned: settings.kind === 'prod',
       removalPolicy: removalFor(settings),
       autoDeleteObjects: throwaway,
@@ -57,10 +61,14 @@ export class Frontend extends Construct {
         responseHeadersPolicy: cloudfront.ResponseHeadersPolicy.SECURITY_HEADERS,
       },
       priceClass: cloudfront.PriceClass.PRICE_CLASS_100,
-      enableLogging: true,
-      logBucket,
-      logFilePrefix: 'cloudfront/',
+      ...(logBucket && { enableLogging: true, logBucket, logFilePrefix: 'cloudfront/' }),
     });
+
+    if (!logBucket) {
+      const reason = 'PR stack: no access logs, because a CloudFront log delivered after auto-delete keeps the logs bucket from being deleted (F25). The stack lives for hours; App-dev and App-prod log access.';
+      Validations.of(this.bucket).acknowledge({ id: 'AwsSolutions-S1', reason });
+      Validations.of(this.distribution).acknowledge({ id: 'AwsSolutions-CFR3', reason });
+    }
 
     // The default *.cloudfront.net certificate keeps the blueprint free of us-east-1 resources,
     // which profile A projects cannot create. M2 adds a custom domain in profiles B and C.

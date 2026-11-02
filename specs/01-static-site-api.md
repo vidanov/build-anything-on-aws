@@ -25,7 +25,7 @@ Challenge (IAM, CDN, IaC, CI/CD, tests); what is new is the gates and the learni
 ## How it works
 
 One CDK app builds `App-<stage>` (`pr-<n>`, `dev`, `prod`) from four constructs:
-`Frontend` (S3, CloudFront, logs bucket, site deployment with `config.json`), `Api` (HTTP API with
+`Frontend` (S3, CloudFront, access logs in dev and prod, site deployment with `config.json`), `Api` (HTTP API with
 throttling and access logs, one Node.js 24 ARM function with an explicit role), `Data` (on-demand
 table with point-in-time recovery), `Ops` (SNS topic, alarms on Lambda errors and API 5xx).
 The envelope (once per account) holds the permissions boundary, CloudFormation execution

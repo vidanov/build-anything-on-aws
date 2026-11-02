@@ -130,6 +130,17 @@ describe('S-008 and S-009 removal policy follows the stage', () => {
     }
   });
 
+  test('PR stacks write no access logs, so a late CloudFront log cannot block the delete; dev and prod keep them', () => {
+    const pr = synth('pr-7');
+    for (const b of Object.values(pr.findResources('AWS::S3::Bucket'))) expect(b.Properties.LoggingConfiguration).toBeUndefined();
+    pr.hasResourceProperties('AWS::CloudFront::Distribution', { DistributionConfig: Match.objectLike({ Logging: Match.absent() }) });
+    for (const stage of ['dev', 'prod']) {
+      const t = synth(stage);
+      t.hasResourceProperties('AWS::S3::Bucket', { LoggingConfiguration: Match.objectLike({ DestinationBucketName: Match.anyValue() }) });
+      t.hasResourceProperties('AWS::CloudFront::Distribution', { DistributionConfig: Match.objectLike({ Logging: Match.objectLike({ Bucket: Match.anyValue() }) }) });
+    }
+  });
+
   test('stage names outside pr-<n>, dev, prod are rejected', () => {
     expect(() => synth('test')).toThrow(/baa:stage/);
   });
