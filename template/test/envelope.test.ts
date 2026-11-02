@@ -60,7 +60,8 @@ describe('GitHub OIDC trust', () => {
       .Properties.AssumeRolePolicyDocument.Statement[0].Condition['ForAnyValue:StringLike']['token.actions.githubusercontent.com:sub'];
     expect([].concat(sub('baa-gha-prod'))).toEqual(['repo:learner/my-app:environment:prod:ref:refs/heads/main']);
     expect([].concat(sub('baa-gha-dev'))).toEqual(['repo:learner/my-app:ref:refs/heads/main:ref:refs/heads/main']);
-    expect([].concat(sub('baa-gha-pr'))).toEqual(['repo:learner/my-app:pull_request:ref:refs/pull/*/merge']);
+    // Open PRs, and cleanup.yml after the merge (F31).
+    expect([].concat(sub('baa-gha-pr'))).toEqual(['repo:learner/my-app:pull_request:ref:refs/pull/*/merge', 'repo:learner/my-app:pull_request:ref:refs/heads/main']);
   });
 
   test('immutable subject claims are trusted alongside the classic format when IDs are given', () => {

@@ -82,13 +82,13 @@ export class EnvelopeStack extends Stack {
       clientIds: ['sts.amazonaws.com'],
     });
 
-    const subjects = (suffix: string): string[] => {
+    const subjects = (...suffixes: string[]): string[] => suffixes.flatMap((suffix) => {
       const subs = [`repo:${props.githubOwner}/${props.githubRepo}:${suffix}`];
       if (props.githubOwnerId && props.githubRepoId) {
         subs.push(`repo:${props.githubOwner}@${props.githubOwnerId}/${props.githubRepo}@${props.githubRepoId}:${suffix}`);
       }
       return subs;
-    };
+    });
 
     const bootstrapRoles = (kinds: string[]): string[] =>
       kinds.map((k) => `arn:${Stack.of(this).partition}:iam::${account}:role/cdk-${QUALIFIER}-${k}-role-${account}-${region}`);
@@ -115,7 +115,9 @@ export class EnvelopeStack extends Stack {
     };
 
     // PR workflow: diff, deploy and destroy throwaway App-pr-<n> stacks. Fork PRs get no OIDC token.
-    const pr = ghaRole('Pr', 'GitHub Actions on pull requests: cdk diff and App-pr-<n> stacks', subjects('pull_request:ref:refs/pull/*/merge'), ['lookup', 'deploy', 'file-publishing', 'image-publishing']);
+    // An open PR's token carries refs/pull/<n>/merge. After the merge, cleanup.yml's token carries
+    // the base branch instead (docs/FACT-CHECKS.md, F31); that run executes main's code.
+    const pr = ghaRole('Pr', 'GitHub Actions on pull requests: cdk diff and App-pr-<n> stacks', subjects('pull_request:ref:refs/pull/*/merge', 'pull_request:ref:refs/heads/main'), ['lookup', 'deploy', 'file-publishing', 'image-publishing']);
     // main branch: App-dev.
     const dev = ghaRole('Dev', 'GitHub Actions on main: App-dev', subjects('ref:refs/heads/main:ref:refs/heads/main'), ['lookup', 'deploy', 'file-publishing', 'image-publishing']);
     // Only the GitHub environment "prod". deploy.yml enters it only on a manual run; required

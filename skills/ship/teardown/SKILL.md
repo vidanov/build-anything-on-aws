@@ -24,7 +24,7 @@ Before anything with data goes, ask whether the learner wants a copy. The prod t
 
 ## 2. PR stacks
 
-Close every open pull request. `cleanup.yml` deletes `App-pr-<n>`. A stack whose cleanup failed is deleted by `sweeper.yml` on its next run (start it by hand: Actions, sweeper, Run workflow). Check with the inventory that no `App-pr-*` stack is left.
+Close every open pull request. `cleanup.yml` deletes `App-pr-<n>`. For a stack whose cleanup failed, fix the cause and re-run that cleanup run (Actions, the run, Re-run jobs); otherwise `sweeper.yml` deletes it once it is older than its `ttlHours` tag (48 h by default). Check with the inventory that no `App-pr-*` stack is left.
 
 ## 3. App-dev and App-prod
 

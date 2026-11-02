@@ -8,6 +8,12 @@ on:
 permissions:
   contents: read
 
+# The group of pr.yml: cleanup waits for a running preview deploy, which would otherwise create
+# the stack after cleanup found nothing to delete (F31). A pending preview run is cancelled.
+concurrency:
+  group: pr-${{ github.event.number }}
+  cancel-in-progress: false
+
 jobs:
   destroy:
     if: github.event.pull_request.head.repo.full_name == github.repository
