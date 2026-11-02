@@ -1,6 +1,7 @@
 # main -> App-dev automatically. App-prod only when a human starts this workflow by hand
 # ("Run workflow"), in the GitHub environment "prod". GitHub Free cannot require reviewers on
-# environments of private repos (docs/FACT-CHECKS.md, F22), so a push never reaches prod.
+# environments of private repos (docs/FACT-CHECKS.md, F22), so a push never reaches prod, and the
+# repository's OIDC subject template adds the branch: baa-gha-prod trusts prod on main only.
 # Where the plan allows, also add required reviewers and a main-only branch policy to "prod".
 name: deploy
 on:

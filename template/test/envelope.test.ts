@@ -38,7 +38,7 @@ const statements = (t: Template, name: string) => {
 };
 
 describe('GitHub OIDC trust', () => {
-  test('every GitHub role trusts exact subjects of one repository, never a wildcard', () => {
+  test('every GitHub role trusts exact subjects of one repository; the only wildcard is the PR number', () => {
     const t = synth();
     const roles = Object.values(t.findResources('AWS::IAM::Role')).filter((r) => String(r.Properties.RoleName).startsWith('baa-gha-'));
     expect(roles.map((r) => r.Properties.RoleName).sort()).toEqual(['baa-gha-dev', 'baa-gha-pr', 'baa-gha-prod']);
@@ -47,25 +47,36 @@ describe('GitHub OIDC trust', () => {
       expect(st.Condition.StringEquals['token.actions.githubusercontent.com:aud']).toBe('sts.amazonaws.com');
       const subs: string[] = [].concat(st.Condition['ForAnyValue:StringLike']['token.actions.githubusercontent.com:sub']);
       for (const s of subs) {
-        expect(s).not.toContain('*');
+        expect(s.replace('refs/pull/*/merge', '')).not.toContain('*');
+        if (s.includes('*')) expect(r.Properties.RoleName).toBe('baa-gha-pr');
         expect(s.startsWith('repo:learner')).toBe(true);
       }
     }
   });
 
-  test('prod only trusts the prod environment, dev only main', () => {
+  test('prod only trusts the prod environment on main, dev only main (F22)', () => {
     const t = synth();
     const sub = (name: string) => Object.values(t.findResources('AWS::IAM::Role')).find((r) => r.Properties.RoleName === name)!
       .Properties.AssumeRolePolicyDocument.Statement[0].Condition['ForAnyValue:StringLike']['token.actions.githubusercontent.com:sub'];
-    expect([].concat(sub('baa-gha-prod'))).toEqual(['repo:learner/my-app:environment:prod']);
-    expect([].concat(sub('baa-gha-dev'))).toEqual(['repo:learner/my-app:ref:refs/heads/main']);
+    expect([].concat(sub('baa-gha-prod'))).toEqual(['repo:learner/my-app:environment:prod:ref:refs/heads/main']);
+    expect([].concat(sub('baa-gha-dev'))).toEqual(['repo:learner/my-app:ref:refs/heads/main:ref:refs/heads/main']);
+    expect([].concat(sub('baa-gha-pr'))).toEqual(['repo:learner/my-app:pull_request:ref:refs/pull/*/merge']);
   });
 
   test('immutable subject claims are trusted alongside the classic format when IDs are given', () => {
     const t = synth({ githubOwnerId: '123', githubRepoId: '456' });
     const role = Object.values(t.findResources('AWS::IAM::Role')).find((r) => r.Properties.RoleName === 'baa-gha-prod')!;
     const subs = role.Properties.AssumeRolePolicyDocument.Statement[0].Condition['ForAnyValue:StringLike']['token.actions.githubusercontent.com:sub'];
-    expect(subs).toEqual(['repo:learner/my-app:environment:prod', 'repo:learner@123/my-app@456:environment:prod']);
+    expect(subs).toEqual(['repo:learner/my-app:environment:prod:ref:refs/heads/main', 'repo:learner@123/my-app@456:environment:prod:ref:refs/heads/main']);
+  });
+});
+
+describe('GitHub subject template', () => {
+  test('the envelope prints the command that makes the repository add the ref to every token', () => {
+    const cmd = (extra = {}) => synth(extra).toJSON().Outputs.SubjectClaimCommand.Value as string;
+    expect(cmd()).toBe('gh api -X PUT repos/learner/my-app/actions/oidc/customization/sub -F use_default=false '
+      + "-f 'include_claim_keys[]=repo' -f 'include_claim_keys[]=context' -f 'include_claim_keys[]=ref' -F use_immutable_subject=false");
+    expect(cmd({ githubOwnerId: '123', githubRepoId: '456' })).toContain('-F use_immutable_subject=true');
   });
 });
 

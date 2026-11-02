@@ -28,8 +28,9 @@ Write `scripts/setup-envelope.sh`: one step per block, each step echoes what it 
 2. `npm run envelope:deploy -- -c profile=<P> -c region=<R> -c githubOwner=<o> -c githubRepo=<r> [-c githubOwnerId=<id> -c githubRepoId=<id>] -c alertEmail=<e> -c monthlyBudgetUsd=<n> [-c trail=false]` (`trail=false` when an organization trail already records the account)
 3. The `BootstrapCommand` from the stack outputs (own `BaaToolkit` stack with qualifier `baa`, narrow execution policy, `--custom-permissions-boundary baa-boundary`, termination protection)
 4. `gh variable set AWS_ACCOUNT_ID`, `AWS_REGION`, `AWS_ROLE_PR`, `AWS_ROLE_DEV`, `ALERT_EMAIL`, and `gh variable set AWS_ROLE_PROD --env prod`
-5. The `[profile baa-agent]` block for `~/.aws/config` with the `AgentRoleArn` output
-6. `AWS_PROFILE=baa-agent aws sts get-caller-identity` (the agent role works and is not the admin)
+5. The `SubjectClaimCommand` from the stack outputs: the repository adds the branch to every OIDC token, so `baa-gha-prod` trusts the `prod` environment on `main` only. Until it runs, every GitHub role refuses the token (the trust expects the new format)
+6. The `[profile baa-agent]` block for `~/.aws/config` with the `AgentRoleArn` output
+7. `AWS_PROFILE=baa-agent aws sts get-caller-identity` (the agent role works and is not the admin)
 
 Show the script. The human runs it. While they do, show only the current step and at most eight remaining step titles.
 

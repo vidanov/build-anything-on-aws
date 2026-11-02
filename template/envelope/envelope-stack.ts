@@ -28,6 +28,12 @@ export const CFN_EXEC_POLICY_NAME = 'baa-cfn-exec';
 // QUALIFIER must equal @aws-cdk/core:bootstrapQualifier in cdk.json (test/envelope.test.ts).
 export const QUALIFIER = 'baa';
 export const TOOLKIT_STACK_NAME = 'BaaToolkit';
+// The repository's OIDC subject template (set once with the GitHub API, see the envelope skill)
+// adds the ref to every token. With the default template a job in environment prod gets
+// repo:<o>/<r>:environment:prod from any branch, and GitHub Free has no branch policy for
+// environments of private repos (docs/FACT-CHECKS.md, F22). With the ref, baa-gha-prod trusts
+// main only.
+export const SUBJECT_CLAIM_KEYS = ['repo', 'context', 'ref'];
 
 /**
  * The envelope deploys before `cdk bootstrap`, with the human's CLI credentials. The CLI
@@ -94,7 +100,7 @@ export class EnvelopeStack extends Stack {
         maxSessionDuration: Duration.hours(1),
         permissionsBoundary: boundary,
         assumedBy: new iam.WebIdentityPrincipal(provider.openIdConnectProviderArn, {
-          // Exact subjects only: StringLike without wildcards, never repo:owner/*.
+          // Exact subjects only, never repo:owner/*. The one wildcard is the PR number.
           StringEquals: { 'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com' },
           'ForAnyValue:StringLike': { 'token.actions.githubusercontent.com:sub': subs },
         }),
@@ -109,12 +115,12 @@ export class EnvelopeStack extends Stack {
     };
 
     // PR workflow: diff, deploy and destroy throwaway App-pr-<n> stacks. Fork PRs get no OIDC token.
-    const pr = ghaRole('Pr', 'GitHub Actions on pull requests: cdk diff and App-pr-<n> stacks', subjects('pull_request'), ['lookup', 'deploy', 'file-publishing', 'image-publishing']);
+    const pr = ghaRole('Pr', 'GitHub Actions on pull requests: cdk diff and App-pr-<n> stacks', subjects('pull_request:ref:refs/pull/*/merge'), ['lookup', 'deploy', 'file-publishing', 'image-publishing']);
     // main branch: App-dev.
-    const dev = ghaRole('Dev', 'GitHub Actions on main: App-dev', subjects('ref:refs/heads/main'), ['lookup', 'deploy', 'file-publishing', 'image-publishing']);
+    const dev = ghaRole('Dev', 'GitHub Actions on main: App-dev', subjects('ref:refs/heads/main:ref:refs/heads/main'), ['lookup', 'deploy', 'file-publishing', 'image-publishing']);
     // Only the GitHub environment "prod". deploy.yml enters it only on a manual run; required
     // reviewers on it need a paid plan for private repos (docs/FACT-CHECKS.md, F22).
-    const prod = ghaRole('Prod', 'GitHub Actions in environment prod: App-prod', subjects('environment:prod'), ['lookup', 'deploy', 'file-publishing', 'image-publishing']);
+    const prod = ghaRole('Prod', 'GitHub Actions in environment prod: App-prod', subjects('environment:prod:ref:refs/heads/main'), ['lookup', 'deploy', 'file-publishing', 'image-publishing']);
 
     // 4. The local coding agent reads; it never writes. Data plane reads are denied too.
     const agent = new iam.Role(this, 'AgentReadOnly', {
@@ -175,6 +181,16 @@ export class EnvelopeStack extends Stack {
     new CfnOutput(this, 'DevRoleArn', { value: dev.roleArn, description: 'gh variable set AWS_ROLE_DEV' });
     new CfnOutput(this, 'ProdRoleArn', { value: prod.roleArn, description: 'gh variable set AWS_ROLE_PROD --env prod' });
     new CfnOutput(this, 'AgentRoleArn', { value: agent.roleArn, description: 'role_arn for the [profile baa-agent] in ~/.aws/config' });
+    // The trust above matches only after the repository uses this subject template. Immutable
+    // subjects stay on when the envelope knows the IDs, and go back to the classic format otherwise.
+    const immutable = Boolean(props.githubOwnerId && props.githubRepoId);
+    new CfnOutput(this, 'SubjectClaimCommand', {
+      value: [
+        `gh api -X PUT repos/${props.githubOwner}/${props.githubRepo}/actions/oidc/customization/sub -F use_default=false`,
+        ...SUBJECT_CLAIM_KEYS.map((k) => `-f 'include_claim_keys[]=${k}'`), // quoted: zsh globs []
+        `-F use_immutable_subject=${immutable}`,
+      ].join(' '),
+    });
     new CfnOutput(this, 'BootstrapCommand', {
       value: [
         `npx cdk bootstrap aws://${account}/${region}`,
