@@ -18,6 +18,7 @@
     "./skills/ship/pipeline",
     "./skills/ship/ephemeral",
     "./skills/ship/wa-checkpoint",
+    "./skills/ship/teardown",
     "./skills/learn/explain-fail",
     "./skills/learn/level",
     "./skills/learn/debrief"

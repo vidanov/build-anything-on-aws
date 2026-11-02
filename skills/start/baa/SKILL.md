@@ -36,6 +36,7 @@ Read the project before you route. State lives in files, not in your memory of e
 | Every story of the milestone `done` or `blocked`, no `docs/review/<milestone>.md` | `wa-checkpoint`, then `debrief` |
 | A red gate right now | `explain-fail` |
 | The user asks about their level or wants less or more help | `level` |
+| The user wants the app, prod data or the whole setup removed from the account | `teardown` |
 
 ## When to send the user elsewhere
 

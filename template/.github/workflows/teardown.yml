@@ -1,0 +1,57 @@
+# Removes App-dev or App-prod, only when a human starts it by hand ("Run workflow") on main and
+# types the stack name. App-dev takes its data with it. App-prod keeps its table and buckets
+# (DeletionPolicy Retain, table deletion protection); `envelope/teardown.sh prod-data` removes
+# them afterwards with the human's admin sign-in. The `teardown` skill gives the whole order.
+name: teardown
+on:
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: Stage to remove
+        type: choice
+        options: [dev, prod]
+      confirm:
+        description: Type the stack name again (App-dev or App-prod)
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  dev:
+    if: inputs.stage == 'dev' && inputs.confirm == 'App-dev' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup-gates
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_DEV }}
+          aws-region: ${{ vars.AWS_REGION }}
+          allowed-account-ids: ${{ vars.AWS_ACCOUNT_ID }}
+      - run: npx cdk destroy App-dev -c baa:stage=dev -c "baa:region=${{ vars.AWS_REGION }}" --force
+
+  prod:
+    if: inputs.stage == 'prod' && inputs.confirm == 'App-prod' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: prod
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup-gates
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_PROD }}
+          aws-region: ${{ vars.AWS_REGION }}
+          allowed-account-ids: ${{ vars.AWS_PROD_ACCOUNT_ID || vars.AWS_ACCOUNT_ID }}
+      - run: npx cdk destroy App-prod -c baa:stage=prod -c "baa:region=${{ vars.AWS_REGION }}" --force

@@ -15,6 +15,7 @@ Explain each in one line before setting anything:
 - `cleanup.yml`: deletes `App-pr-<n>` when the PR closes.
 - `deploy.yml`: `main` to `App-dev`, gates first; `App-prod` only when a human starts the workflow by hand ("Run workflow"), in the environment `prod`.
 - `sweeper.yml`: nightly, deletes PR stacks older than their `ttlHours` tag.
+- `teardown.yml`: by hand only, removes `App-dev` or `App-prod` after the human types the stack name. The `teardown` skill gives the full order.
 - `security.yml`: gitleaks and `npm audit`.
 
 ## 2. Wire GitHub (the human runs these; generate them as `scripts/setup-github.sh`)

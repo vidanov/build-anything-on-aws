@@ -1,0 +1,5 @@
+interface:
+  display_name: "Teardown"
+  short_description: "Remove the app, its kept data, the toolkit and the envelope"
+policy:
+  allow_implicit_invocation: false

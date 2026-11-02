@@ -92,6 +92,7 @@ the push. Levels are per topic and move up only on checks with a real answer.
 | Ship | [`pipeline`](skills/ship/pipeline/SKILL.md) | GitHub wired to the envelope, proven by one PR |
 | | [`ephemeral`](skills/ship/ephemeral/SKILL.md) | Throwaway `App-pr-<n>` stacks, cleanup and sweeper |
 | | [`wa-checkpoint`](skills/ship/wa-checkpoint/SKILL.md) | Well-Architected review; findings become stories or gates |
+| | [`teardown`](skills/ship/teardown/SKILL.md) | Removes app, kept prod data, toolkit and envelope, in order |
 | Learn | [`explain-fail`](skills/learn/explain-fail/SKILL.md) | A red gate becomes a lesson, hypothesis first |
 | | [`level`](skills/learn/level/SKILL.md) | Per-topic levels, promotion on evidence |
 | | [`debrief`](skills/learn/debrief/SKILL.md) | Milestone recall, confidence vs accuracy, transfer task |
@@ -107,7 +108,7 @@ the push. Levels are per topic and move up only on checks with a real answer.
 ## Layout
 
 ```
-skills/          14 skills (Agent Skills format, Claude Code plugin, Codex openai.yaml)
+skills/          15 skills (Agent Skills format, Claude Code plugin, Codex openai.yaml)
 output-styles/   baa-l0, baa-l1, baa-l2 (Claude Code)
 hooks/           deny-aws (26 patterns, tested), require-explain-back
 mcp/             AWS MCP Server configs: pinned proxy, eu-central-1, read-only agent profile
