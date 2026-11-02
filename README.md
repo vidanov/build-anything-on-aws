@@ -14,9 +14,24 @@ preflight -> envelope -> aws-brief -> blueprint -> user-stories -> scaffold -> p
           -> wa-checkpoint + debrief at the end of each milestone
 ```
 
-Status: 0.1.0, first blueprint ready. Tested locally (synth, 20 template and envelope tests,
-13 drills, 34 hook tests). Not yet run end to end against a real AWS account: see
+Status: 0.1.0, first blueprint ready. Run end to end in November 2026 on a real AWS account
+(profile B, eu-central-1) with a private repository on GitHub Free: envelope, pull request
+stacks, dev and prod deploys, removal of the app and its kept prod data. Locally: 27 template
+and envelope tests, 13 drills, 34 hook tests. Not yet run: a whole project by a newcomer,
+removal of the toolkit and the envelope, profiles A and C. Each claim and its evidence is in
 [docs/FACT-CHECKS.md](docs/FACT-CHECKS.md).
+
+## Before you start
+
+- **An AWS account where you can sign in as administrator.** An account only for learning is
+  best. BAA keeps to its own stacks and toolkit, so other CDK projects in the account keep
+  working (F20). The envelope sets a monthly budget with email alerts.
+- **A GitHub account.** Your app lives in your own repository, and GitHub Actions deploys it.
+  A private repository on GitHub Free cannot require a reviewer for prod (F22), so prod deploys
+  only from `main` and only when you start it by hand. A public repository or GitHub Pro adds
+  the reviewer.
+- **Tools:** Node.js 22+, AWS CLI 2.35+, GitHub CLI, `uv`, `cfn-lint`, `cfn-guard` 3.x.
+  `preflight` checks them.
 
 ## Quick start
 
@@ -34,7 +49,21 @@ Then type `/baa`. It reads your project and picks the next step.
 Other agents (Codex, Cursor, Kiro): `scripts/link-skills.sh`, plus the MCP config for your
 agent from [mcp/](mcp/) and the rules from [rules/](rules/).
 
-Tools on your machine: Node.js 22+, AWS CLI 2.35+, GitHub CLI, `uv`, `cfn-lint`, `cfn-guard` 3.x.
+## Who does what
+
+The agent plans with you, writes the code, runs the gates, reads the account through a
+read-only role and explains what it sees. It cannot deploy or delete.
+
+You do the few steps that need you:
+
+- Sign in as administrator when a step needs it: the envelope once, the toolkit once, and the
+  commands the agent prints for repository settings.
+- Read the IAM changes CDK shows before such a deploy, and answer `y` only when they match
+  what the agent predicted.
+- Review and merge pull requests. Each pull request gets its own stack `App-pr-<n>`, deleted
+  when it closes. A merge deploys `App-dev`. You start the `App-prod` deploy by hand.
+- When you are done, type `/baa` and say so. The `teardown` skill removes everything in the
+  order that works.
 
 ## What makes it different
 

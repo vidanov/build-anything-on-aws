@@ -4,6 +4,9 @@ The design rests on facts that change fast or that no source fully confirmed. Ea
 marked: **verified** (with how and when), **open** (run `scripts/fact-checks.sh` in a sandbox
 account), or **assumption** (design choice to revisit). Last update: 2026-11-02.
 
+Links to `vidanov/baa-test-app` point to the private test repository; its run logs contain the
+sandbox account ID. The facts they show are summarized here.
+
 | # | Fact | Status | Evidence or how to check | Depends on it |
 |---|---|---|---|---|
 | F1 | `cdk synth` exits non-zero on an unacknowledged cdk-nag v3 error | **verified** 2026-11-01 | cdk-nag 3.0.2, aws-cdk-lib 2.275.0, aws-cdk 2.1147.0: exit 1, report in `cdk.out/policy-validation-report.json`. `nag-report.mjs` reads the report anyway | first gate |
